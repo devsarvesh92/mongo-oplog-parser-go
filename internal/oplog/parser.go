@@ -10,6 +10,7 @@ type Oplog struct {
 	Op string                 `"json:op"`
 	Ns string                 `"json:ns"`
 	O  map[string]interface{} `"json:o"`
+	O2 map[string]interface{} `"json:o2"`
 }
 
 func GenerateSQL(oplong Oplog) string {
@@ -17,7 +18,11 @@ func GenerateSQL(oplong Oplog) string {
 	switch oplong.Op {
 	case "i":
 		result = generateInsertStatement(oplong)
+
+	case "u":
+		result = generateUpdateStatement(oplong)
 	}
+
 	return result
 }
 
@@ -36,6 +41,35 @@ func generateInsertStatement(oplog Oplog) string {
 	}
 
 	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+}
+
+func generateUpdateStatement(oplog Oplog) string {
+	// UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';
+	var query strings.Builder
+	query.WriteString("UPDATE ")
+	query.WriteString(oplog.Ns)
+	query.WriteString(" SET")
+
+	//Build update
+	if diff, ok := oplog.O["diff"].(map[string]interface{}); ok {
+		update, _ := diff["u"].(map[string]interface{})
+		for col, val := range update {
+			query.WriteString(fmt.Sprintf(" %v = %v", col, formatColValue(val)))
+		}
+
+		delete, _ := diff["d"].(map[string]interface{})
+		for col, _ := range delete {
+			query.WriteString(fmt.Sprintf(" %v = %v", col, "NULL"))
+		}
+	}
+
+	// Build where clause
+	query.WriteString(" WHERE ")
+	for col, val := range oplog.O2 {
+		query.WriteString(fmt.Sprintf("%v = %v;", col, formatColValue(val)))
+	}
+	return query.String()
+
 }
 
 func formatColValue(input interface{}) string {

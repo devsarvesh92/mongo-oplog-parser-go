@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestGenerateSQL(t *testing.T) {
+func TestGenerateInsertStatement(t *testing.T) {
 	tests := []struct {
 		name     string
 		oplog    Oplog
@@ -37,13 +37,68 @@ func TestGenerateSQL(t *testing.T) {
 			},
 		},
 		expected: "",
-	}}
+	},
+	}
 
 	for _, test := range tests {
 		got := GenerateSQL(test.oplog)
 
 		if got != test.expected {
 			t.Errorf("Expected %v Got %v", test.expected, got)
+		}
+	}
+}
+
+func TestGenerateUpdateStatement(t *testing.T) {
+	tests := []struct {
+		name     string
+		oplog    Oplog
+		expected string
+	}{
+		{
+			name: "Update statement",
+			oplog: Oplog{
+				Op: "u",
+				Ns: "test.student",
+				O: map[string]interface{}{
+					"$v2": 2,
+					"diff": map[string]interface{}{
+						"u": map[string]interface{}{
+							"is_graduated": true,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
+		{
+			name: "Update statement",
+			oplog: Oplog{
+				Op: "u",
+				Ns: "test.student",
+				O: map[string]interface{}{
+					"$v2": 2,
+					"diff": map[string]interface{}{
+						"d": map[string]interface{}{
+							"roll_no": false,
+						},
+					},
+				},
+				O2: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
+	}
+
+	for _, test := range tests {
+		got := GenerateSQL(test.oplog)
+		if got != test.expected {
+			t.Errorf("Test failed got %v expected %v", got, test.expected)
 		}
 	}
 }
