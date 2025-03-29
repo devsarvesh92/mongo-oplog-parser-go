@@ -44,13 +44,11 @@ func generateInsertStatement(oplog Oplog) string {
 }
 
 func generateUpdateStatement(oplog Oplog) string {
-	// UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';
 	var query strings.Builder
 	query.WriteString("UPDATE ")
 	query.WriteString(oplog.Ns)
 	query.WriteString(" SET")
 
-	//Build update
 	if diff, ok := oplog.O["diff"].(map[string]interface{}); ok {
 		update, _ := diff["u"].(map[string]interface{})
 		for col, val := range update {
@@ -63,7 +61,6 @@ func generateUpdateStatement(oplog Oplog) string {
 		}
 	}
 
-	// Build where clause
 	query.WriteString(" WHERE ")
 	for col, val := range oplog.O2 {
 		query.WriteString(fmt.Sprintf("%v = %v;", col, formatColValue(val)))
