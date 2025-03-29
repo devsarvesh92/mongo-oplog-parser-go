@@ -102,3 +102,30 @@ func TestGenerateUpdateStatement(t *testing.T) {
 		}
 	}
 }
+
+func TestGenerateDeleteStatement(t *testing.T) {
+	tests := []struct {
+		name     string
+		oplog    Oplog
+		expected string
+	}{
+		{
+			name: "Delete statement",
+			oplog: Oplog{
+				Op: "d",
+				Ns: "test.student",
+				O: map[string]interface{}{
+					"_id": "635b79e231d82a8ab1de863b",
+				},
+			},
+			expected: "DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';",
+		},
+	}
+
+	for _, test := range tests {
+		got := GenerateSQL(test.oplog)
+		if got != test.expected {
+			t.Errorf("Test failed got %v expected %v", got, test.expected)
+		}
+	}
+}

@@ -13,14 +13,17 @@ type Oplog struct {
 	O2 map[string]interface{} `"json:o2"`
 }
 
-func GenerateSQL(oplong Oplog) string {
+func GenerateSQL(oplog Oplog) string {
 	var result string
-	switch oplong.Op {
+	switch oplog.Op {
 	case "i":
-		result = generateInsertStatement(oplong)
+		result = generateInsertStatement(oplog)
 
 	case "u":
-		result = generateUpdateStatement(oplong)
+		result = generateUpdateStatement(oplog)
+
+	case "d":
+		result = generateDeleteStatement(oplog)
 	}
 
 	return result
@@ -61,12 +64,24 @@ func generateUpdateStatement(oplog Oplog) string {
 		}
 	}
 
-	query.WriteString(" WHERE ")
-	for col, val := range oplog.O2 {
-		query.WriteString(fmt.Sprintf("%v = %v;", col, formatColValue(val)))
-	}
+	query.WriteString(buildWhereClause(oplog.O2))
 	return query.String()
 
+}
+
+func buildWhereClause(colValues map[string]interface{}) string {
+	var whcl strings.Builder
+	whcl.WriteString(" WHERE ")
+	for col, val := range colValues {
+		whcl.WriteString(fmt.Sprintf("%v = %v;", col, formatColValue(val)))
+	}
+	return whcl.String()
+}
+
+func generateDeleteStatement(oplog Oplog) string {
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
+	return queryBuilder.String()
 }
 
 func formatColValue(input interface{}) string {
