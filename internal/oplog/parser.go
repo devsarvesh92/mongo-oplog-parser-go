@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+const (
+	OpInsert = "i"
+	OpUpdate = "u"
+	OpDelete = "d"
+)
+
 type Oplog struct {
 	Op string                 `"json:op"`
 	Ns string                 `"json:ns"`
@@ -13,23 +19,29 @@ type Oplog struct {
 	O2 map[string]interface{} `"json:o2"`
 }
 
-func GenerateSQL(oplog Oplog) string {
-	var result string
+type Result struct {
+	OperationType string
+	SQL           string
+}
+
+func GenerateSQL(oplog Oplog) Result {
+	var result Result
 	switch oplog.Op {
-	case "i":
+	case OpInsert:
 		result = generateInsertStatement(oplog)
 
-	case "u":
+	case OpUpdate:
 		result = generateUpdateStatement(oplog)
 
-	case "d":
+	case OpDelete:
 		result = generateDeleteStatement(oplog)
 	}
 
 	return result
 }
 
-func generateInsertStatement(oplog Oplog) string {
+func generateInsertStatement(oplog Oplog) Result {
+
 	columnNames := make([]string, 0)
 	values := make([]string, 0)
 
@@ -43,10 +55,13 @@ func generateInsertStatement(oplog Oplog) string {
 		values = append(values, formatColValue(oplog.O[col]))
 	}
 
-	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+	return Result{
+		OperationType: OpInsert,
+		SQL:           fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", ")),
+	}
 }
 
-func generateUpdateStatement(oplog Oplog) string {
+func generateUpdateStatement(oplog Oplog) Result {
 	var query strings.Builder
 	query.WriteString("UPDATE ")
 	query.WriteString(oplog.Ns)
@@ -65,8 +80,20 @@ func generateUpdateStatement(oplog Oplog) string {
 	}
 
 	query.WriteString(buildWhereClause(oplog.O2))
-	return query.String()
+	return Result{
+		OperationType: OpUpdate,
+		SQL:           query.String(),
+	}
 
+}
+
+func generateDeleteStatement(oplog Oplog) Result {
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
+	return Result{
+		OperationType: OpDelete,
+		SQL:           queryBuilder.String(),
+	}
 }
 
 func buildWhereClause(colValues map[string]interface{}) string {
@@ -76,12 +103,6 @@ func buildWhereClause(colValues map[string]interface{}) string {
 		whcl.WriteString(fmt.Sprintf("%v = %v;", col, formatColValue(val)))
 	}
 	return whcl.String()
-}
-
-func generateDeleteStatement(oplog Oplog) string {
-	var queryBuilder strings.Builder
-	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
-	return queryBuilder.String()
 }
 
 func formatColValue(input interface{}) string {

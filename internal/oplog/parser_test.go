@@ -1,6 +1,7 @@
 package oplog
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -8,7 +9,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 	tests := []struct {
 		name     string
 		oplog    Oplog
-		expected string
+		expected Result
 	}{{
 		name: "parsing insert oplog",
 		oplog: Oplog{
@@ -22,7 +23,10 @@ func TestGenerateInsertStatement(t *testing.T) {
 				"date_of_birth": "2000-01-30",
 			},
 		},
-		expected: "INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+		expected: Result{
+			OperationType: OpInsert,
+			SQL:           "INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+		},
 	}, {
 		name: "parsing invalid input",
 		oplog: Oplog{
@@ -36,14 +40,14 @@ func TestGenerateInsertStatement(t *testing.T) {
 				"date_of_birth": "2000-01-30",
 			},
 		},
-		expected: "",
+		expected: Result{},
 	},
 	}
 
 	for _, test := range tests {
 		got := GenerateSQL(test.oplog)
 
-		if got != test.expected {
+		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
 		}
 	}
@@ -53,7 +57,7 @@ func TestGenerateUpdateStatement(t *testing.T) {
 	tests := []struct {
 		name     string
 		oplog    Oplog
-		expected string
+		expected Result
 	}{
 		{
 			name: "Update statement",
@@ -72,7 +76,10 @@ func TestGenerateUpdateStatement(t *testing.T) {
 					"_id": "635b79e231d82a8ab1de863b",
 				},
 			},
-			expected: "UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+			expected: Result{
+				OperationType: OpUpdate,
+				SQL:           "UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+			},
 		},
 		{
 			name: "Update statement",
@@ -91,14 +98,18 @@ func TestGenerateUpdateStatement(t *testing.T) {
 					"_id": "635b79e231d82a8ab1de863b",
 				},
 			},
-			expected: "UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+			expected: Result{
+				OperationType: OpUpdate,
+				SQL:           "UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+			},
 		},
 	}
 
 	for _, test := range tests {
 		got := GenerateSQL(test.oplog)
-		if got != test.expected {
-			t.Errorf("Test failed got %v expected %v", got, test.expected)
+
+		if !reflect.DeepEqual(got, test.expected) {
+			t.Errorf("Expected %v Got %v", test.expected, got)
 		}
 	}
 }
@@ -107,7 +118,7 @@ func TestGenerateDeleteStatement(t *testing.T) {
 	tests := []struct {
 		name     string
 		oplog    Oplog
-		expected string
+		expected Result
 	}{
 		{
 			name: "Delete statement",
@@ -118,14 +129,18 @@ func TestGenerateDeleteStatement(t *testing.T) {
 					"_id": "635b79e231d82a8ab1de863b",
 				},
 			},
-			expected: "DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';",
+			expected: Result{
+				OperationType: OpDelete,
+				SQL:           "DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';",
+			},
 		},
 	}
 
 	for _, test := range tests {
 		got := GenerateSQL(test.oplog)
-		if got != test.expected {
-			t.Errorf("Test failed got %v expected %v", got, test.expected)
+
+		if !reflect.DeepEqual(got, test.expected) {
+			t.Errorf("Expected %v Got %v", test.expected, got)
 		}
 	}
 }
