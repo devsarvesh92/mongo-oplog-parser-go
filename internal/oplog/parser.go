@@ -12,6 +12,12 @@ const (
 	OpDelete = "d"
 )
 
+const (
+	Float   = "FLOAT"
+	VARCHAR = "VARCHAR(255)"
+	BOOL    = "BOOLEAN"
+)
+
 type Oplog struct {
 	Op string                 `"json:op"`
 	Ns string                 `"json:ns"`
@@ -22,6 +28,8 @@ type Oplog struct {
 type Result struct {
 	OperationType string
 	SQL           string
+	SchemaSQL     string
+	TableSQL      string
 }
 
 func GenerateSQL(oplog Oplog) Result {
@@ -51,13 +59,29 @@ func generateInsertStatement(oplog Oplog) Result {
 
 	sort.Strings(columnNames)
 
-	for _, col := range columnNames {
+	// Build Table SQL
+	var tableSQL strings.Builder
+	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", oplog.Ns))
+	tableSQL.WriteString("(")
+
+	for idx, col := range columnNames {
 		values = append(values, formatColValue(oplog.O[col]))
+		tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(oplog.O[col]), getConstraint(col))))
+		if idx != len(columnNames)-1 {
+			tableSQL.WriteString(", ")
+		}
+
 	}
+
+	tableSQL.WriteString(");")
+
+	namespace := strings.Split(oplog.Ns, ".")[0]
 
 	return Result{
 		OperationType: OpInsert,
 		SQL:           fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", ")),
+		SchemaSQL:     fmt.Sprintf("CREATE SCHEMA %v;", namespace),
+		TableSQL:      tableSQL.String(),
 	}
 }
 
@@ -113,5 +137,24 @@ func formatColValue(input interface{}) string {
 		return fmt.Sprintf("%t", input)
 	default:
 		return fmt.Sprintf("'%v'", input)
+	}
+}
+
+func getSQLType(input interface{}) string {
+	switch input.(type) {
+	case int, int8, int16, float32, float64:
+		return Float
+	case bool:
+		return BOOL
+	default:
+		return VARCHAR
+	}
+}
+
+func getConstraint(input string) string {
+	if input == "_id" {
+		return "PRIMARY KEY"
+	} else {
+		return ""
 	}
 }
