@@ -32,48 +32,47 @@ type Result struct {
 	TableSQL      string
 }
 
-func GenerateSQL(oplog Oplog) Result {
+func GenerateSQL(oplogs []Oplog) Result {
 	var result Result
-	switch oplog.Op {
+	switch oplogs[0].Op {
 	case OpInsert:
-		result = generateInsertWithSchema(oplog)
+		result = generateInsertWithSchema(oplogs)
 
 	case OpUpdate:
-		result = generateUpdateStatement(oplog)
+		result = generateUpdateStatement(oplogs[0])
 
 	case OpDelete:
-		result = generateDeleteStatement(oplog)
+		result = generateDeleteStatement(oplogs[0])
 	}
 
 	return result
 }
 
-func generateInsertWithSchema(oplog Oplog) Result {
+func generateInsertWithSchema(oplogs []Oplog) Result {
 
 	columnNames := make([]string, 0)
-	values := make([]string, 0)
 
-	for col, _ := range oplog.O {
+	for col, _ := range oplogs[0].O {
 		columnNames = append(columnNames, col)
 	}
 
 	sort.Strings(columnNames)
 
 	tableSQLChan := make(chan string)
-	insertSQLChan := make(chan string)
+	insertSQLChan := make(chan []string)
 	schemaSQLChan := make(chan string)
 
 	//Start go routines
 	go func() {
-		tableSQLChan <- buildTableSQL(columnNames, oplog)
+		tableSQLChan <- buildTableSQL(columnNames, oplogs[0])
 	}()
 
 	go func() {
-		insertSQLChan <- buildInsertSQL(columnNames, values, oplog)
+		insertSQLChan <- buildInsertSQL(columnNames, oplogs)
 	}()
 
 	go func() {
-		schemaSQLChan <- buildSchemaSQL(oplog)
+		schemaSQLChan <- buildSchemaSQL(oplogs[0])
 	}()
 
 	tableSQL := <-tableSQLChan
@@ -82,7 +81,7 @@ func generateInsertWithSchema(oplog Oplog) Result {
 
 	return Result{
 		OperationType: OpInsert,
-		SQL:           []string{insertSQL},
+		SQL:           insertSQL,
 		SchemaSQL:     schemaSQL,
 		TableSQL:      tableSQL,
 	}
@@ -103,11 +102,17 @@ func buildTableSQL(columnNames []string, oplog Oplog) string {
 	return tableSQL.String()
 }
 
-func buildInsertSQL(columnNames []string, values []string, oplog Oplog) string {
-	for _, col := range columnNames {
-		values = append(values, formatColValue(oplog.O[col]))
+func buildInsertSQL(columnNames []string, oplogs []Oplog) (results []string) {
+
+	for _, oplog := range oplogs {
+		values := make([]string, 0)
+		for _, col := range columnNames {
+			values = append(values, formatColValue(oplog.O[col]))
+		}
+		query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+		results = append(results, query)
 	}
-	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+	return results
 }
 
 func buildSchemaSQL(oplog Oplog) string {

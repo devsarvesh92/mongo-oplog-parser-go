@@ -47,7 +47,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL(test.oplog)
+		got := GenerateSQL([]Oplog{test.oplog})
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -108,7 +108,7 @@ func TestGenerateUpdateStatement(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL(test.oplog)
+		got := GenerateSQL([]Oplog{test.oplog})
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -139,7 +139,56 @@ func TestGenerateDeleteStatement(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL(test.oplog)
+		got := GenerateSQL([]Oplog{test.oplog})
+
+		if !reflect.DeepEqual(got, test.expected) {
+			t.Errorf("Expected %v Got %v", test.expected, got)
+		}
+	}
+}
+
+func TestMultipleOplogs(t *testing.T) {
+	tests := []struct {
+		name     string
+		oplogs   []Oplog
+		expected Result
+	}{{
+		name: "parsing insert oplog",
+		oplogs: []Oplog{
+			{
+				Op: "i",
+				Ns: "test.student",
+				O: map[string]interface{}{
+					"_id":           "635b79e231d82a8ab1de863b",
+					"name":          "Selena Miller",
+					"roll_no":       51,
+					"is_graduated":  false,
+					"date_of_birth": "2000-01-30",
+				},
+			},
+			{
+				Op: "i",
+				Ns: "test.student",
+				O: map[string]interface{}{
+					"_id":           "14798c213f273a7ca2cf5174",
+					"name":          "George Smith",
+					"roll_no":       21,
+					"is_graduated":  true,
+					"date_of_birth": "2001-03-23",
+				},
+			},
+		},
+		expected: Result{
+			OperationType: OpInsert,
+			SQL:           []string{"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);", "INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('14798c213f273a7ca2cf5174', '2001-03-23', true, 'George Smith', 21);"},
+			SchemaSQL:     "CREATE SCHEMA test;",
+			TableSQL:      "CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+		},
+	},
+	}
+
+	for _, test := range tests {
+		got := GenerateSQL(test.oplogs)
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
