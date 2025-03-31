@@ -1,5 +1,2 @@
-test: setup
+test: 
 	go test ./...
-
-setup:
-	@docker-compose up -d
