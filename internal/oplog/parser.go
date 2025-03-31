@@ -27,7 +27,7 @@ type Oplog struct {
 
 type Result struct {
 	OperationType string
-	SQL           string
+	SQL           []string
 	SchemaSQL     string
 	TableSQL      string
 }
@@ -82,7 +82,7 @@ func generateInsertWithSchema(oplog Oplog) Result {
 
 	return Result{
 		OperationType: OpInsert,
-		SQL:           insertSQL,
+		SQL:           []string{insertSQL},
 		SchemaSQL:     schemaSQL,
 		TableSQL:      tableSQL,
 	}
@@ -136,7 +136,7 @@ func generateUpdateStatement(oplog Oplog) Result {
 	query.WriteString(buildWhereClause(oplog.O2))
 	return Result{
 		OperationType: OpUpdate,
-		SQL:           query.String(),
+		SQL:           []string{query.String()},
 	}
 
 }
@@ -146,7 +146,7 @@ func generateDeleteStatement(oplog Oplog) Result {
 	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
 	return Result{
 		OperationType: OpDelete,
-		SQL:           queryBuilder.String(),
+		SQL:           []string{queryBuilder.String()},
 	}
 }
 

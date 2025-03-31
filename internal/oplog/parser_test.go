@@ -25,7 +25,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 		},
 		expected: Result{
 			OperationType: OpInsert,
-			SQL:           "INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+			SQL:           []string{"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);"},
 			SchemaSQL:     "CREATE SCHEMA test;",
 			TableSQL:      "CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 		},
@@ -80,7 +80,7 @@ func TestGenerateUpdateStatement(t *testing.T) {
 			},
 			expected: Result{
 				OperationType: OpUpdate,
-				SQL:           "UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';",
+				SQL:           []string{"UPDATE test.student SET is_graduated = true WHERE _id = '635b79e231d82a8ab1de863b';"},
 			},
 		},
 		{
@@ -102,7 +102,7 @@ func TestGenerateUpdateStatement(t *testing.T) {
 			},
 			expected: Result{
 				OperationType: OpUpdate,
-				SQL:           "UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';",
+				SQL:           []string{"UPDATE test.student SET roll_no = NULL WHERE _id = '635b79e231d82a8ab1de863b';"},
 			},
 		},
 	}
@@ -133,7 +133,7 @@ func TestGenerateDeleteStatement(t *testing.T) {
 			},
 			expected: Result{
 				OperationType: OpDelete,
-				SQL:           "DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';",
+				SQL:           []string{"DELETE FROM test.student WHERE _id = '635b79e231d82a8ab1de863b';"},
 			},
 		},
 	}
