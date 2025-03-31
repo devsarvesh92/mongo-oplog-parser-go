@@ -36,7 +36,7 @@ func GenerateSQL(oplog Oplog) Result {
 	var result Result
 	switch oplog.Op {
 	case OpInsert:
-		result = generateInsertStatement(oplog)
+		result = generateInsertWithSchema(oplog)
 
 	case OpUpdate:
 		result = generateUpdateStatement(oplog)
@@ -48,7 +48,7 @@ func GenerateSQL(oplog Oplog) Result {
 	return result
 }
 
-func generateInsertStatement(oplog Oplog) Result {
+func generateInsertWithSchema(oplog Oplog) Result {
 
 	columnNames := make([]string, 0)
 	values := make([]string, 0)
@@ -59,30 +59,60 @@ func generateInsertStatement(oplog Oplog) Result {
 
 	sort.Strings(columnNames)
 
-	// Build Table SQL
+	tableSQLChan := make(chan string)
+	insertSQLChan := make(chan string)
+	schemaSQLChan := make(chan string)
+
+	//Start go routines
+	go func() {
+		tableSQLChan <- buildTableSQL(columnNames, oplog)
+	}()
+
+	go func() {
+		insertSQLChan <- buildInsertSQL(columnNames, values, oplog)
+	}()
+
+	go func() {
+		schemaSQLChan <- buildSchemaSQL(oplog)
+	}()
+
+	tableSQL := <-tableSQLChan
+	insertSQL := <-insertSQLChan
+	schemaSQL := <-schemaSQLChan
+
+	return Result{
+		OperationType: OpInsert,
+		SQL:           insertSQL,
+		SchemaSQL:     schemaSQL,
+		TableSQL:      tableSQL,
+	}
+}
+
+func buildTableSQL(columnNames []string, oplog Oplog) string {
 	var tableSQL strings.Builder
 	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", oplog.Ns))
 	tableSQL.WriteString("(")
 
 	for idx, col := range columnNames {
-		values = append(values, formatColValue(oplog.O[col]))
 		tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(oplog.O[col]), getConstraint(col))))
 		if idx != len(columnNames)-1 {
 			tableSQL.WriteString(", ")
 		}
-
 	}
-
 	tableSQL.WriteString(");")
+	return tableSQL.String()
+}
 
-	namespace := strings.Split(oplog.Ns, ".")[0]
-
-	return Result{
-		OperationType: OpInsert,
-		SQL:           fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", ")),
-		SchemaSQL:     fmt.Sprintf("CREATE SCHEMA %v;", namespace),
-		TableSQL:      tableSQL.String(),
+func buildInsertSQL(columnNames []string, values []string, oplog Oplog) string {
+	for _, col := range columnNames {
+		values = append(values, formatColValue(oplog.O[col]))
 	}
+	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+}
+
+func buildSchemaSQL(oplog Oplog) string {
+	namespace := strings.Split(oplog.Ns, ".")[0]
+	return fmt.Sprintf("CREATE SCHEMA %v;", namespace)
 }
 
 func generateUpdateStatement(oplog Oplog) Result {
