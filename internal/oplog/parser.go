@@ -29,7 +29,8 @@ type Result struct {
 	OperationType string
 	SQL           []string
 	SchemaSQL     string
-	TableSQL      string
+	CreateSQL     string
+	AlterSQL      []string
 }
 
 func GenerateSQL(oplogs []Oplog) Result {
@@ -50,41 +51,53 @@ func GenerateSQL(oplogs []Oplog) Result {
 
 func buildInsertWithSchema(oplogs []Oplog) Result {
 
+	// Start building insert statements
+	insertStatements := make([]string, 0)
+	alterStatementMap := make(map[string]string, 0)
+	alterStatements := make([]string, 0)
+	var tableSQL string
+	var baseCols []string
+
+	for id, oplog := range oplogs {
+		columnNames := getCols(oplog)
+		if id == 0 {
+			tableSQL = buildTableSQL(columnNames, oplogs[0])
+			baseCols = columnNames
+		}
+
+		diffCols := diffCols(baseCols, columnNames)
+		for _, col := range diffCols {
+			if _, ok := alterStatementMap[col]; !ok {
+				alterSt := buildAlterSQL(col, oplog)
+				alterStatementMap[col] = alterSt
+				alterStatements = append(alterStatements, alterSt)
+			}
+		}
+
+		insertStatement := buildInsertSQL(columnNames, oplog)
+		insertStatements = append(insertStatements, insertStatement)
+	}
+
+	schemaSQL := buildSchemaSQL(oplogs[0])
+
+	return Result{
+		OperationType: OpInsert,
+		SQL:           insertStatements,
+		SchemaSQL:     schemaSQL,
+		CreateSQL:     tableSQL,
+		AlterSQL:      alterStatements,
+	}
+}
+
+func getCols(oplogs Oplog) []string {
 	columnNames := make([]string, 0)
 
-	for col, _ := range oplogs[0].O {
+	for col, _ := range oplogs.O {
 		columnNames = append(columnNames, col)
 	}
 
 	sort.Strings(columnNames)
-
-	tableSQLChan := make(chan string)
-	insertSQLChan := make(chan []string)
-	schemaSQLChan := make(chan string)
-
-	//Start go routines
-	go func() {
-		tableSQLChan <- buildTableSQL(columnNames, oplogs[0])
-	}()
-
-	go func() {
-		insertSQLChan <- buildInsertSQL(columnNames, oplogs)
-	}()
-
-	go func() {
-		schemaSQLChan <- buildSchemaSQL(oplogs[0])
-	}()
-
-	tableSQL := <-tableSQLChan
-	insertSQL := <-insertSQLChan
-	schemaSQL := <-schemaSQLChan
-
-	return Result{
-		OperationType: OpInsert,
-		SQL:           insertSQL,
-		SchemaSQL:     schemaSQL,
-		TableSQL:      tableSQL,
-	}
+	return columnNames
 }
 
 func buildTableSQL(columnNames []string, oplog Oplog) string {
@@ -102,17 +115,17 @@ func buildTableSQL(columnNames []string, oplog Oplog) string {
 	return tableSQL.String()
 }
 
-func buildInsertSQL(columnNames []string, oplogs []Oplog) (results []string) {
+func buildInsertSQL(columnNames []string, oplog Oplog) string {
 
-	for _, oplog := range oplogs {
-		values := make([]string, 0)
-		for _, col := range columnNames {
-			values = append(values, formatColValue(oplog.O[col]))
-		}
-		query := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
-		results = append(results, query)
+	values := make([]string, 0)
+	for _, col := range columnNames {
+		values = append(values, formatColValue(oplog.O[col]))
 	}
-	return results
+	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+}
+
+func buildAlterSQL(col string, oplog Oplog) string {
+	return fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
 }
 
 func buildSchemaSQL(oplog Oplog) string {
@@ -192,4 +205,20 @@ func getConstraint(input string) string {
 	} else {
 		return ""
 	}
+}
+
+func diffCols(orgCols []string, newCols []string) (diff []string) {
+
+	colMap := make(map[string]struct{})
+
+	for _, col := range orgCols {
+		colMap[col] = struct{}{}
+	}
+
+	for _, nc := range newCols {
+		if _, ok := colMap[nc]; !ok {
+			diff = append(diff, nc)
+		}
+	}
+	return diff
 }
