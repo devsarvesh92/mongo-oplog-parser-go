@@ -36,7 +36,7 @@ func GenerateSQL(oplogs []Oplog) Result {
 	var result Result
 	switch oplogs[0].Op {
 	case OpInsert:
-		result = generateInsertWithSchema(oplogs)
+		result = buildInsertWithSchema(oplogs)
 
 	case OpUpdate:
 		result = buildUpdateStatement(oplogs[0])
@@ -48,7 +48,7 @@ func GenerateSQL(oplogs []Oplog) Result {
 	return result
 }
 
-func generateInsertWithSchema(oplogs []Oplog) Result {
+func buildInsertWithSchema(oplogs []Oplog) Result {
 
 	columnNames := make([]string, 0)
 
