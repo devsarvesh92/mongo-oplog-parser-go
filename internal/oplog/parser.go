@@ -39,10 +39,10 @@ func GenerateSQL(oplogs []Oplog) Result {
 		result = generateInsertWithSchema(oplogs)
 
 	case OpUpdate:
-		result = generateUpdateStatement(oplogs[0])
+		result = buildUpdateStatement(oplogs[0])
 
 	case OpDelete:
-		result = generateDeleteStatement(oplogs[0])
+		result = buildDeleteStatement(oplogs[0])
 	}
 
 	return result
@@ -120,7 +120,7 @@ func buildSchemaSQL(oplog Oplog) string {
 	return fmt.Sprintf("CREATE SCHEMA %v;", namespace)
 }
 
-func generateUpdateStatement(oplog Oplog) Result {
+func buildUpdateStatement(oplog Oplog) Result {
 	var query strings.Builder
 	query.WriteString("UPDATE ")
 	query.WriteString(oplog.Ns)
@@ -146,7 +146,7 @@ func generateUpdateStatement(oplog Oplog) Result {
 
 }
 
-func generateDeleteStatement(oplog Oplog) Result {
+func buildDeleteStatement(oplog Oplog) Result {
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
 	return Result{
