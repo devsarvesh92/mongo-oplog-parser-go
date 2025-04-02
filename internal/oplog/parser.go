@@ -33,71 +33,37 @@ type Result struct {
 	AlterSQL      []string
 }
 
-func GenerateSQL(oplogs []Oplog) Result {
-	var result Result
-	switch oplogs[0].Op {
-	case OpInsert:
-		result = buildInsertWithSchema(oplogs)
-
-	case OpUpdate:
-		result = buildUpdateStatement(oplogs[0])
-
-	case OpDelete:
-		result = buildDeleteStatement(oplogs[0])
-	}
-
-	return result
-}
-
-func buildInsertWithSchema(oplogs []Oplog) Result {
-
-	// Start building insert statements
-	insertStatements := make([]string, 0)
-	alterStatementMap := make(map[string]string, 0)
-	alterStatements := make([]string, 0)
-	var tableSQL string
+func GenerateSQL(oplogs []Oplog) (result Result) {
 	var baseCols []string
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog)
-		if id == 0 {
-			tableSQL = buildTableSQL(columnNames, oplogs[0])
+		switch {
+		case oplog.Op == OpInsert && id == 0:
+			result.SchemaSQL = buildSchemaSQL(oplog)
+			result.CreateSQL = buildTableSQL(columnNames, oplog)
+			result.SQL = append(result.SQL, buildInsert(columnNames, oplog))
 			baseCols = columnNames
-		}
+			result.OperationType = OpInsert
 
-		diffCols := diffCols(baseCols, columnNames)
-		for _, col := range diffCols {
-			if _, ok := alterStatementMap[col]; !ok {
-				alterSt := buildAlterSQL(col, oplog)
-				alterStatementMap[col] = alterSt
-				alterStatements = append(alterStatements, alterSt)
+		case oplog.Op == OpInsert && id > 0:
+			result.SQL = append(result.SQL, buildInsert(columnNames, oplog))
+			// Check fo diff
+			diff := diffCols(baseCols, columnNames)
+			for _, diffCol := range diff {
+				result.AlterSQL = append(result.AlterSQL, buildAlter(diffCol, oplog))
 			}
+			result.OperationType = OpInsert
+
+		case oplog.Op == OpUpdate:
+			result.SQL = append(result.SQL, buildUpdate(oplog))
+			result.OperationType = OpUpdate
+		case oplog.Op == OpDelete:
+			result.SQL = append(result.SQL, buildDelete(oplog))
+			result.OperationType = OpDelete
 		}
-
-		insertStatement := buildInsertSQL(columnNames, oplog)
-		insertStatements = append(insertStatements, insertStatement)
 	}
-
-	schemaSQL := buildSchemaSQL(oplogs[0])
-
-	return Result{
-		OperationType: OpInsert,
-		SQL:           insertStatements,
-		SchemaSQL:     schemaSQL,
-		CreateSQL:     tableSQL,
-		AlterSQL:      alterStatements,
-	}
-}
-
-func getCols(oplogs Oplog) []string {
-	columnNames := make([]string, 0)
-
-	for col, _ := range oplogs.O {
-		columnNames = append(columnNames, col)
-	}
-
-	sort.Strings(columnNames)
-	return columnNames
+	return
 }
 
 func buildTableSQL(columnNames []string, oplog Oplog) string {
@@ -115,7 +81,7 @@ func buildTableSQL(columnNames []string, oplog Oplog) string {
 	return tableSQL.String()
 }
 
-func buildInsertSQL(columnNames []string, oplog Oplog) string {
+func buildInsert(columnNames []string, oplog Oplog) string {
 
 	values := make([]string, 0)
 	for _, col := range columnNames {
@@ -124,7 +90,7 @@ func buildInsertSQL(columnNames []string, oplog Oplog) string {
 	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
 }
 
-func buildAlterSQL(col string, oplog Oplog) string {
+func buildAlter(col string, oplog Oplog) string {
 	return fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
 }
 
@@ -133,7 +99,7 @@ func buildSchemaSQL(oplog Oplog) string {
 	return fmt.Sprintf("CREATE SCHEMA %v;", namespace)
 }
 
-func buildUpdateStatement(oplog Oplog) Result {
+func buildUpdate(oplog Oplog) string {
 	var query strings.Builder
 	query.WriteString("UPDATE ")
 	query.WriteString(oplog.Ns)
@@ -152,20 +118,14 @@ func buildUpdateStatement(oplog Oplog) Result {
 	}
 
 	query.WriteString(buildWhereClause(oplog.O2))
-	return Result{
-		OperationType: OpUpdate,
-		SQL:           []string{query.String()},
-	}
+	return query.String()
 
 }
 
-func buildDeleteStatement(oplog Oplog) Result {
+func buildDelete(oplog Oplog) string {
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
-	return Result{
-		OperationType: OpDelete,
-		SQL:           []string{queryBuilder.String()},
-	}
+	return queryBuilder.String()
 }
 
 func buildWhereClause(colValues map[string]interface{}) string {
@@ -221,4 +181,15 @@ func diffCols(orgCols []string, newCols []string) (diff []string) {
 		}
 	}
 	return diff
+}
+
+func getCols(oplogs Oplog) []string {
+	columnNames := make([]string, 0)
+
+	for col, _ := range oplogs.O {
+		columnNames = append(columnNames, col)
+	}
+
+	sort.Strings(columnNames)
+	return columnNames
 }
