@@ -33,7 +33,14 @@ type Result struct {
 	AlterSQL      []string
 }
 
+// GenerateSQL transforms a set of MongoDB oplogs into SQL statements.
+// It analyzes each oplog and generates the appropriate SQL commands including
+// schema creation, table creation, inserts, updates, and deletes.
 func GenerateSQL(oplogs []Oplog) (result Result) {
+	if len(oplogs) == 0 {
+		return
+	}
+
 	var baseCols []string
 
 	for id, oplog := range oplogs {
@@ -48,7 +55,6 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 
 		case oplog.Op == OpInsert && id > 0:
 			result.SQL = append(result.SQL, buildInsert(columnNames, oplog))
-			// Check fo diff
 			diff := diffCols(baseCols, columnNames)
 			for _, diffCol := range diff {
 				result.AlterSQL = append(result.AlterSQL, buildAlter(diffCol, oplog))
