@@ -42,13 +42,15 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	}
 
 	var baseCols []string
+	schemaSQLTracker := make(map[string]string)
+	tableSQLTracker := make(map[string]string)
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog)
 		switch {
 		case oplog.Op == OpInsert && id == 0:
-			result.SchemaSQL = buildSchemaSQL(oplog)
-			result.CreateSQL = buildTableSQL(columnNames, oplog)
+			result.SchemaSQL = buildSchemaSQL(oplog, schemaSQLTracker)
+			result.CreateSQL = buildTableSQL(columnNames, oplog, tableSQLTracker)
 			result.SQL = append(result.SQL, buildInsert(columnNames, oplog))
 			baseCols = columnNames
 			result.OperationType = OpInsert
@@ -72,19 +74,23 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	return
 }
 
-func buildTableSQL(columnNames []string, oplog Oplog) string {
+func buildTableSQL(columnNames []string, oplog Oplog, tableSQLTracker map[string]string) (result string) {
 	var tableSQL strings.Builder
 	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", oplog.Ns))
 	tableSQL.WriteString("(")
 
-	for idx, col := range columnNames {
-		tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(oplog.O[col]), getConstraint(col))))
-		if idx != len(columnNames)-1 {
-			tableSQL.WriteString(", ")
+	if _, ok := tableSQLTracker[oplog.Ns]; !ok {
+		for idx, col := range columnNames {
+			tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(oplog.O[col]), getConstraint(col))))
+			if idx != len(columnNames)-1 {
+				tableSQL.WriteString(", ")
+			}
 		}
+		tableSQL.WriteString(");")
+		result = tableSQL.String()
+		tableSQLTracker[oplog.Ns] = result
 	}
-	tableSQL.WriteString(");")
-	return tableSQL.String()
+	return
 }
 
 func buildInsert(columnNames []string, oplog Oplog) string {
@@ -100,9 +106,13 @@ func buildAlter(col string, oplog Oplog) string {
 	return fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
 }
 
-func buildSchemaSQL(oplog Oplog) string {
+func buildSchemaSQL(oplog Oplog, schemaSQLTracker map[string]string) (result string) {
 	namespace := strings.Split(oplog.Ns, ".")[0]
-	return fmt.Sprintf("CREATE SCHEMA %v;", namespace)
+	if _, ok := schemaSQLTracker[oplog.Ns]; !ok {
+		result = fmt.Sprintf("CREATE SCHEMA %v;", namespace)
+		schemaSQLTracker[oplog.Ns] = result
+	}
+	return
 }
 
 func buildUpdate(oplog Oplog) string {
