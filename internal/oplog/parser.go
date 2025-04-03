@@ -26,11 +26,12 @@ type Oplog struct {
 }
 
 type Result struct {
-	OperationType string
-	SQL           []string
-	SchemaSQL     string
-	CreateSQL     string
-	AlterSQL      []string
+	OperationType   string
+	SQL             []string
+	SchemaSQL       string
+	CreateSQL       string
+	AlterSQL        []string
+	NestedCreateSQL []string
 }
 
 // GenerateSQL transforms a set of MongoDB oplogs into SQL statements.
@@ -45,14 +46,14 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	queryTracker := make(map[string]struct{})
 
 	for id, oplog := range oplogs {
-		columnNames := getCols(oplog)
+		columnNames := getCols(oplog.O)
 		switch {
 		case oplog.Op == OpInsert:
 			if id == 0 {
 				baseCols = columnNames
 			}
 			schemaSQL := buildSchema(oplog, queryTracker)
-			createSQL := buildTable(columnNames, oplog, queryTracker)
+			createSQL := buildTable(columnNames, oplog.Ns, oplog.O, queryTracker)
 			result.SQL = append(result.SQL, buildInsert(columnNames, oplog, queryTracker))
 
 			diff := diffCols(baseCols, columnNames)
@@ -89,21 +90,21 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	return
 }
 
-func buildTable(columnNames []string, oplog Oplog, queryTracker map[string]struct{}) (result string) {
+func buildTable(columnNames []string, tableName string, document map[string]interface{}, queryTracker map[string]struct{}) (result string) {
 	var tableSQL strings.Builder
-	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", oplog.Ns))
+	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", tableName))
 	tableSQL.WriteString("(")
 
-	if _, ok := queryTracker[oplog.Ns]; !ok {
+	if _, ok := queryTracker[tableName]; !ok {
 		for idx, col := range columnNames {
-			tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(oplog.O[col]), getConstraint(col))))
+			tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(document[col]), getConstraint(col))))
 			if idx != len(columnNames)-1 {
 				tableSQL.WriteString(", ")
 			}
 		}
 		tableSQL.WriteString(");")
 		result = tableSQL.String()
-		queryTracker[oplog.Ns] = struct{}{}
+		queryTracker[tableName] = struct{}{}
 	}
 	return
 }
@@ -240,10 +241,10 @@ func diffCols(orgCols []string, newCols []string) (diff []string) {
 	return diff
 }
 
-func getCols(oplogs Oplog) []string {
+func getCols(document map[string]interface{}) []string {
 	columnNames := make([]string, 0)
 
-	for col, _ := range oplogs.O {
+	for col, _ := range document {
 		columnNames = append(columnNames, col)
 	}
 
