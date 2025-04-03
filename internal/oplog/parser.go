@@ -42,24 +42,26 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	}
 
 	var baseCols []string
-	schemaSQLTracker := make(map[string]string)
-	tableSQLTracker := make(map[string]string)
+	queryTracker := make(map[string]string)
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog)
 		switch {
 		case oplog.Op == OpInsert && id == 0:
-			result.SchemaSQL = buildSchemaSQL(oplog, schemaSQLTracker)
-			result.CreateSQL = buildTableSQL(columnNames, oplog, tableSQLTracker)
-			result.SQL = append(result.SQL, buildInsert(columnNames, oplog))
+			result.SchemaSQL = buildSchema(oplog, queryTracker)
+			result.CreateSQL = buildTable(columnNames, oplog, queryTracker)
+			result.SQL = append(result.SQL, buildInsert(columnNames, oplog, queryTracker))
 			baseCols = columnNames
 			result.OperationType = OpInsert
 
 		case oplog.Op == OpInsert && id > 0:
-			result.SQL = append(result.SQL, buildInsert(columnNames, oplog))
+			result.SQL = append(result.SQL, buildInsert(columnNames, oplog, queryTracker))
 			diff := diffCols(baseCols, columnNames)
 			for _, diffCol := range diff {
-				result.AlterSQL = append(result.AlterSQL, buildAlter(diffCol, oplog))
+				alterQuery := buildAlter(diffCol, oplog, queryTracker)
+				if alterQuery != "" {
+					result.AlterSQL = append(result.AlterSQL, alterQuery)
+				}
 			}
 			result.OperationType = OpInsert
 
@@ -74,12 +76,12 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	return
 }
 
-func buildTableSQL(columnNames []string, oplog Oplog, tableSQLTracker map[string]string) (result string) {
+func buildTable(columnNames []string, oplog Oplog, queryTracker map[string]string) (result string) {
 	var tableSQL strings.Builder
 	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", oplog.Ns))
 	tableSQL.WriteString("(")
 
-	if _, ok := tableSQLTracker[oplog.Ns]; !ok {
+	if _, ok := queryTracker[oplog.Ns]; !ok {
 		for idx, col := range columnNames {
 			tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(oplog.O[col]), getConstraint(col))))
 			if idx != len(columnNames)-1 {
@@ -88,29 +90,42 @@ func buildTableSQL(columnNames []string, oplog Oplog, tableSQLTracker map[string
 		}
 		tableSQL.WriteString(");")
 		result = tableSQL.String()
-		tableSQLTracker[oplog.Ns] = result
+		queryTracker[oplog.Ns] = result
 	}
 	return
 }
 
-func buildInsert(columnNames []string, oplog Oplog) string {
+func buildInsert(columnNames []string, oplog Oplog, queryTracker map[string]string) (result string) {
 
 	values := make([]string, 0)
 	for _, col := range columnNames {
 		values = append(values, formatColValue(oplog.O[col]))
 	}
-	return fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+	insResult := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
+
+	if _, ok := queryTracker[insResult]; !ok {
+		queryTracker[insResult] = insResult
+		result = insResult
+		return
+	}
+	return
 }
 
-func buildAlter(col string, oplog Oplog) string {
-	return fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
+func buildAlter(col string, oplog Oplog, queryTracker map[string]string) (result string) {
+	alterResult := fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
+
+	if _, ok := queryTracker[alterResult]; !ok {
+		result = alterResult
+		queryTracker[alterResult] = alterResult
+	}
+	return
 }
 
-func buildSchemaSQL(oplog Oplog, schemaSQLTracker map[string]string) (result string) {
+func buildSchema(oplog Oplog, queryTracker map[string]string) (result string) {
 	namespace := strings.Split(oplog.Ns, ".")[0]
-	if _, ok := schemaSQLTracker[oplog.Ns]; !ok {
+	if _, ok := queryTracker[namespace]; !ok {
 		result = fmt.Sprintf("CREATE SCHEMA %v;", namespace)
-		schemaSQLTracker[oplog.Ns] = result
+		queryTracker[namespace] = result
 	}
 	return
 }
