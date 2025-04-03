@@ -55,7 +55,6 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 			createSQL := buildTable(columnNames, oplog, queryTracker)
 			result.SQL = append(result.SQL, buildInsert(columnNames, oplog, queryTracker))
 
-			//Build alter
 			diff := diffCols(baseCols, columnNames)
 			for _, diffCol := range diff {
 				alterQuery := buildAlter(diffCol, oplog, queryTracker)
@@ -74,10 +73,16 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 			}
 
 		case oplog.Op == OpUpdate:
-			result.SQL = append(result.SQL, buildUpdate(oplog))
+			updateSQL := buildUpdate(oplog, queryTracker)
+			if updateSQL != "" {
+				result.SQL = append(result.SQL, updateSQL)
+			}
 			result.OperationType = OpUpdate
 		case oplog.Op == OpDelete:
-			result.SQL = append(result.SQL, buildDelete(oplog))
+			deleteSQL := buildUpdate(oplog, queryTracker)
+			if deleteSQL != "" {
+				result.SQL = append(result.SQL, buildDelete(oplog, queryTracker))
+			}
 			result.OperationType = OpDelete
 		}
 	}
@@ -138,7 +143,7 @@ func buildSchema(oplog Oplog, queryTracker map[string]struct{}) (result string) 
 	return
 }
 
-func buildUpdate(oplog Oplog) string {
+func buildUpdate(oplog Oplog, queryTracker map[string]struct{}) (result string) {
 	var query strings.Builder
 	query.WriteString("UPDATE ")
 	query.WriteString(oplog.Ns)
@@ -157,14 +162,27 @@ func buildUpdate(oplog Oplog) string {
 	}
 
 	query.WriteString(buildWhereClause(oplog.O2))
-	return query.String()
+
+	updateResult := query.String()
+
+	if _, ok := queryTracker[updateResult]; !ok {
+		result = updateResult
+		queryTracker[updateResult] = struct{}{}
+	}
+
+	return
 
 }
 
-func buildDelete(oplog Oplog) string {
+func buildDelete(oplog Oplog, queryTracker map[string]struct{}) (result string) {
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
-	return queryBuilder.String()
+	deleteResult := queryBuilder.String()
+	if _, ok := queryTracker[deleteResult]; !ok {
+		result = deleteResult
+		queryTracker[deleteResult] = struct{}{}
+	}
+	return
 }
 
 func buildWhereClause(colValues map[string]interface{}) string {
