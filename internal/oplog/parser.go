@@ -80,9 +80,9 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 			}
 			result.OperationType = OpUpdate
 		case oplog.Op == OpDelete:
-			deleteSQL := buildUpdate(oplog, queryTracker)
+			deleteSQL := buildDelete(oplog, queryTracker)
 			if deleteSQL != "" {
-				result.SQL = append(result.SQL, buildDelete(oplog, queryTracker))
+				result.SQL = append(result.SQL, deleteSQL)
 			}
 			result.OperationType = OpDelete
 		}
