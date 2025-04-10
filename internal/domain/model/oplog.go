@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"reflect"
 	"strings"
 )
 
@@ -52,4 +53,17 @@ func (o *Oplog) IsUpdate() bool {
 
 func (o *Oplog) IsDelete() bool {
 	return o.Op == string(OpDelete)
+}
+
+func (o *Oplog) IsNestedDocument() (result bool) {
+
+	for _, v := range o.O {
+		valueType := reflect.TypeOf(v)
+
+		switch valueType.Kind() {
+		case reflect.Slice, reflect.Array, reflect.Map:
+			result = true
+		}
+	}
+	return result
 }
