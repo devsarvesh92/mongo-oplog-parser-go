@@ -1,6 +1,9 @@
 package model
 
-import "strings"
+import (
+	"errors"
+	"strings"
+)
 
 type OperationType string
 
@@ -17,12 +20,22 @@ type Oplog struct {
 	O2 map[string]interface{} `"json:o2"`
 }
 
-func (o *Oplog) GetDatabaseName() string {
-	return strings.Split(o.Ns, ".")[0]
+func (o *Oplog) GetDatabaseName() (string, error) {
+	splitedStrs := strings.Split(o.Ns, ".")
+
+	if len(splitedStrs) <= 1 {
+		return "", errors.New("invalid value of namespace")
+	}
+	return splitedStrs[0], nil
 }
 
-func (o *Oplog) GetTableName() string {
-	return strings.Split(o.Ns, ".")[1]
+func (o *Oplog) GetTableName() (string, error) {
+	splitedStrs := strings.Split(o.Ns, ".")
+
+	if len(splitedStrs) <= 1 {
+		return "", errors.New("invalid value of table")
+	}
+	return o.Ns, nil
 }
 
 func (o *Oplog) GetOperationType() OperationType {

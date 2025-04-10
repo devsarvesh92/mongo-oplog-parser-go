@@ -2,6 +2,7 @@ package oplog
 
 import (
 	"fmt"
+	"log"
 	"sort"
 	"strings"
 
@@ -27,13 +28,27 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
+		namespace, err := oplog.GetDatabaseName()
+
+		if err != nil {
+			log.Printf("Error %v in extracting schema name", err)
+			continue
+		}
+
+		tableName, err := oplog.GetTableName()
+
+		if err != nil {
+			log.Printf("Error %v in extracting table name", err)
+			continue
+		}
+
 		switch {
 		case oplog.IsInsert():
 			if id == 0 {
 				baseCols = columnNames
 			}
-			schemaSQL := buildSchema(oplog, queryTracker)
-			createSQL := buildTable(columnNames, oplog.Ns, oplog.O, queryTracker)
+			schemaSQL := buildSchema(oplog, namespace, queryTracker)
+			createSQL := buildTable(columnNames, tableName, oplog.O, queryTracker)
 			result.SQL = append(result.SQL, buildInsert(columnNames, oplog, queryTracker))
 
 			diff := diffCols(baseCols, columnNames)
@@ -51,12 +66,12 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 				result.CreateSQL = createSQL
 			}
 		case oplog.IsUpdate():
-			updateSQL := buildUpdate(oplog, queryTracker)
+			updateSQL := buildUpdate(oplog, tableName, queryTracker)
 			if updateSQL != "" {
 				result.SQL = append(result.SQL, updateSQL)
 			}
 		case oplog.IsDelete():
-			deleteSQL := buildDelete(oplog, queryTracker)
+			deleteSQL := buildDelete(oplog, tableName, queryTracker)
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
 			}
@@ -111,8 +126,8 @@ func buildAlter(col string, oplog model.Oplog, queryTracker map[string]struct{})
 	return
 }
 
-func buildSchema(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
-	namespace := strings.Split(oplog.Ns, ".")[0]
+func buildSchema(oplog model.Oplog, namespace string, queryTracker map[string]struct{}) (result string) {
+
 	if _, ok := queryTracker[namespace]; !ok {
 		result = fmt.Sprintf("CREATE SCHEMA %v;", namespace)
 		queryTracker[namespace] = struct{}{}
@@ -120,10 +135,10 @@ func buildSchema(oplog model.Oplog, queryTracker map[string]struct{}) (result st
 	return
 }
 
-func buildUpdate(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
+func buildUpdate(oplog model.Oplog, tableName string, queryTracker map[string]struct{}) (result string) {
 	var query strings.Builder
 	query.WriteString("UPDATE ")
-	query.WriteString(oplog.Ns)
+	query.WriteString(tableName)
 	query.WriteString(" SET")
 
 	if diff, ok := oplog.O["diff"].(map[string]interface{}); ok {
@@ -151,9 +166,9 @@ func buildUpdate(oplog model.Oplog, queryTracker map[string]struct{}) (result st
 
 }
 
-func buildDelete(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
+func buildDelete(oplog model.Oplog, tableName string, queryTracker map[string]struct{}) (result string) {
 	var queryBuilder strings.Builder
-	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
+	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", tableName, buildWhereClause(oplog.O)))
 	deleteResult := queryBuilder.String()
 	if _, ok := queryTracker[deleteResult]; !ok {
 		result = deleteResult
