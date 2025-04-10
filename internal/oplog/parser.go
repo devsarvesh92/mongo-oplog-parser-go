@@ -4,12 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-)
 
-const (
-	OpInsert = "i"
-	OpUpdate = "u"
-	OpDelete = "d"
+	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 )
 
 const (
@@ -18,26 +14,10 @@ const (
 	BOOL    = "BOOLEAN"
 )
 
-type Oplog struct {
-	Op string                 `"json:op"`
-	Ns string                 `"json:ns"`
-	O  map[string]interface{} `"json:o"`
-	O2 map[string]interface{} `"json:o2"`
-}
-
-type Result struct {
-	OperationType   string
-	SQL             []string
-	SchemaSQL       string
-	CreateSQL       string
-	AlterSQL        []string
-	NestedCreateSQL []string
-}
-
 // GenerateSQL transforms a set of MongoDB oplogs into SQL statements.
 // It analyzes each oplog and generates the appropriate SQL commands including
 // schema creation, table creation, inserts, updates, and deletes.
-func GenerateSQL(oplogs []Oplog) (result Result) {
+func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	if len(oplogs) == 0 {
 		return
 	}
@@ -48,7 +28,7 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
 		switch {
-		case oplog.Op == OpInsert:
+		case oplog.IsInsert():
 			if id == 0 {
 				baseCols = columnNames
 			}
@@ -63,8 +43,6 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 					result.AlterSQL = append(result.AlterSQL, alterQuery)
 				}
 			}
-			result.OperationType = OpInsert
-
 			if schemaSQL != "" {
 				result.SchemaSQL = schemaSQL
 			}
@@ -72,20 +50,18 @@ func GenerateSQL(oplogs []Oplog) (result Result) {
 			if createSQL != "" {
 				result.CreateSQL = createSQL
 			}
-
-		case oplog.Op == OpUpdate:
+		case oplog.IsUpdate():
 			updateSQL := buildUpdate(oplog, queryTracker)
 			if updateSQL != "" {
 				result.SQL = append(result.SQL, updateSQL)
 			}
-			result.OperationType = OpUpdate
-		case oplog.Op == OpDelete:
+		case oplog.IsDelete():
 			deleteSQL := buildDelete(oplog, queryTracker)
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
 			}
-			result.OperationType = OpDelete
 		}
+		result.OperationType = string(oplog.GetOperationType())
 	}
 	return
 }
@@ -109,7 +85,7 @@ func buildTable(columnNames []string, tableName string, document map[string]inte
 	return
 }
 
-func buildInsert(columnNames []string, oplog Oplog, queryTracker map[string]struct{}) (result string) {
+func buildInsert(columnNames []string, oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
 
 	values := make([]string, 0)
 	for _, col := range columnNames {
@@ -125,7 +101,7 @@ func buildInsert(columnNames []string, oplog Oplog, queryTracker map[string]stru
 	return
 }
 
-func buildAlter(col string, oplog Oplog, queryTracker map[string]struct{}) (result string) {
+func buildAlter(col string, oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
 	alterResult := fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
 
 	if _, ok := queryTracker[alterResult]; !ok {
@@ -135,7 +111,7 @@ func buildAlter(col string, oplog Oplog, queryTracker map[string]struct{}) (resu
 	return
 }
 
-func buildSchema(oplog Oplog, queryTracker map[string]struct{}) (result string) {
+func buildSchema(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
 	namespace := strings.Split(oplog.Ns, ".")[0]
 	if _, ok := queryTracker[namespace]; !ok {
 		result = fmt.Sprintf("CREATE SCHEMA %v;", namespace)
@@ -144,7 +120,7 @@ func buildSchema(oplog Oplog, queryTracker map[string]struct{}) (result string) 
 	return
 }
 
-func buildUpdate(oplog Oplog, queryTracker map[string]struct{}) (result string) {
+func buildUpdate(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
 	var query strings.Builder
 	query.WriteString("UPDATE ")
 	query.WriteString(oplog.Ns)
@@ -175,7 +151,7 @@ func buildUpdate(oplog Oplog, queryTracker map[string]struct{}) (result string) 
 
 }
 
-func buildDelete(oplog Oplog, queryTracker map[string]struct{}) (result string) {
+func buildDelete(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
 	var queryBuilder strings.Builder
 	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", oplog.Ns, buildWhereClause(oplog.O)))
 	deleteResult := queryBuilder.String()
