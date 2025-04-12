@@ -28,6 +28,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	queryTracker := make(map[string]struct{})
 	insertStrategy := strategy.NewInsertStrategy()
 	updateStrategy := strategy.NewUpdateStrategy()
+	deleteStrategy := strategy.NewDeleteStrategy()
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
@@ -74,7 +75,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 				result.SQL = append(result.SQL, updateSQL)
 			}
 		case oplog.IsDelete():
-			deleteSQL := buildDelete(oplog, tableName, queryTracker)
+			deleteSQL := deleteStrategy.Generate(oplog, queryTracker)
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
 			}
@@ -120,26 +121,6 @@ func buildSchema(oplog model.Oplog, namespace string, queryTracker map[string]st
 		queryTracker[namespace] = struct{}{}
 	}
 	return
-}
-
-func buildDelete(oplog model.Oplog, tableName string, queryTracker map[string]struct{}) (result string) {
-	var queryBuilder strings.Builder
-	queryBuilder.WriteString(fmt.Sprintf("DELETE FROM %v%v", tableName, buildWhereClause(oplog.O)))
-	deleteResult := queryBuilder.String()
-	if _, ok := queryTracker[deleteResult]; !ok {
-		result = deleteResult
-		queryTracker[deleteResult] = struct{}{}
-	}
-	return
-}
-
-func buildWhereClause(colValues map[string]interface{}) string {
-	var whcl strings.Builder
-	whcl.WriteString(" WHERE ")
-	for col, val := range colValues {
-		whcl.WriteString(fmt.Sprintf("%v = %v;", col, formatColValue(val)))
-	}
-	return whcl.String()
 }
 
 func formatColValue(input interface{}) string {
