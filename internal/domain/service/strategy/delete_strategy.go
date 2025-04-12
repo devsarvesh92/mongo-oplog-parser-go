@@ -15,7 +15,7 @@ func NewDeleteStrategy() *DeleteStrategy {
 	return &DeleteStrategy{}
 }
 
-func (s *DeleteStrategy) Generate(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
+func (s *DeleteStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
 	var queryBuilder strings.Builder
 	tableName, err := oplog.GetTableName()
 
@@ -28,7 +28,10 @@ func (s *DeleteStrategy) Generate(oplog model.Oplog, queryTracker map[string]str
 	deleteResult := queryBuilder.String()
 	if _, ok := queryTracker[deleteResult]; !ok {
 		result = deleteResult
-		queryTracker[deleteResult] = struct{}{}
+		queryTracker[deleteResult] = model.QueryTracker{
+			Type:  model.UPDATE,
+			Query: result,
+		}
 	}
 	return
 }

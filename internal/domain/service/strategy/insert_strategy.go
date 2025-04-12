@@ -14,7 +14,7 @@ func NewInsertStrategy() *InsertStrategy {
 	return &InsertStrategy{}
 }
 
-func (s *InsertStrategy) Generate(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
+func (s *InsertStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
 	columnNames := util.GetCols(oplog.O)
 	values := make([]string, 0)
 	for _, col := range columnNames {
@@ -22,8 +22,8 @@ func (s *InsertStrategy) Generate(oplog model.Oplog, queryTracker map[string]str
 	}
 	insResult := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
 	if _, ok := queryTracker[insResult]; !ok {
-		queryTracker[insResult] = struct{}{}
 		result = insResult
+		queryTracker[insResult] = model.QueryTracker{Type: model.INSERT, Query: result, Columns: columnNames}
 		return
 	}
 	return

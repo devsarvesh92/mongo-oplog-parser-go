@@ -15,7 +15,7 @@ func NewUpdateStrategy() *UpdateStrategy {
 	return &UpdateStrategy{}
 }
 
-func (s *UpdateStrategy) Generate(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
+func (s *UpdateStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
 	var query strings.Builder
 	tableName, err := oplog.GetTableName()
 
@@ -46,7 +46,10 @@ func (s *UpdateStrategy) Generate(oplog model.Oplog, queryTracker map[string]str
 
 	if _, ok := queryTracker[updateResult]; !ok {
 		result = updateResult
-		queryTracker[updateResult] = struct{}{}
+		queryTracker[updateResult] = model.QueryTracker{
+			Type:  model.UPDATE,
+			Query: result,
+		}
 	}
 
 	return

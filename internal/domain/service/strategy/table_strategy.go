@@ -15,7 +15,7 @@ func NewTableStrategy() *TableStrategy {
 	return &TableStrategy{}
 }
 
-func (s *TableStrategy) Generate(oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
+func (s *TableStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
 	var tableSQL strings.Builder
 	tableName, err := oplog.GetTableName()
 	if err != nil {
@@ -36,7 +36,13 @@ func (s *TableStrategy) Generate(oplog model.Oplog, queryTracker map[string]stru
 		}
 		tableSQL.WriteString(");")
 		result = tableSQL.String()
-		queryTracker[tableName] = struct{}{}
+
+		queryTracker[tableName] = model.QueryTracker{
+			Type:    model.CREATE_TABLE,
+			Query:   result,
+			Columns: columnNames,
+		}
+
 	}
 	return
 }

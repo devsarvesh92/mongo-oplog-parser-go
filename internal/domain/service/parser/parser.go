@@ -21,7 +21,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	}
 
 	var baseCols []string
-	queryTracker := make(map[string]struct{})
+	queryTracker := make(map[string]model.QueryTracker)
 	insertStrategy := strategy.NewInsertStrategy()
 	updateStrategy := strategy.NewUpdateStrategy()
 	deleteStrategy := strategy.NewDeleteStrategy()
