@@ -29,15 +29,10 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	insertStrategy := strategy.NewInsertStrategy()
 	updateStrategy := strategy.NewUpdateStrategy()
 	deleteStrategy := strategy.NewDeleteStrategy()
+	schemaStrategy := strategy.NewSchemaStrategy()
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
-		namespace, err := oplog.GetDatabaseName()
-
-		if err != nil {
-			log.Printf("Error %v in extracting schema name", err)
-			continue
-		}
 
 		tableName, err := oplog.GetTableName()
 
@@ -51,7 +46,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 			if id == 0 {
 				baseCols = columnNames
 			}
-			schemaSQL := buildSchema(oplog, namespace, queryTracker)
+			schemaSQL := schemaStrategy.Generate(oplog, queryTracker)
 			createSQL := buildTable(columnNames, tableName, oplog.O, queryTracker)
 			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
 
@@ -110,15 +105,6 @@ func buildAlter(col string, oplog model.Oplog, queryTracker map[string]struct{})
 	if _, ok := queryTracker[alterResult]; !ok {
 		result = alterResult
 		queryTracker[alterResult] = struct{}{}
-	}
-	return
-}
-
-func buildSchema(oplog model.Oplog, namespace string, queryTracker map[string]struct{}) (result string) {
-
-	if _, ok := queryTracker[namespace]; !ok {
-		result = fmt.Sprintf("CREATE SCHEMA %v;", namespace)
-		queryTracker[namespace] = struct{}{}
 	}
 	return
 }
