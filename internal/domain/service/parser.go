@@ -2,9 +2,7 @@ package service
 
 import (
 	"fmt"
-	"log"
 	"sort"
-	"strings"
 
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/strategy"
@@ -30,24 +28,17 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	updateStrategy := strategy.NewUpdateStrategy()
 	deleteStrategy := strategy.NewDeleteStrategy()
 	schemaStrategy := strategy.NewSchemaStrategy()
+	tableStrategy := strategy.NewTableStrategy()
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
-
-		tableName, err := oplog.GetTableName()
-
-		if err != nil {
-			log.Printf("Error %v in extracting table name", err)
-			continue
-		}
-
 		switch {
 		case oplog.IsInsert():
 			if id == 0 {
 				baseCols = columnNames
 			}
 			schemaSQL := schemaStrategy.Generate(oplog, queryTracker)
-			createSQL := buildTable(columnNames, tableName, oplog.O, queryTracker)
+			createSQL := tableStrategy.Generate(oplog, queryTracker)
 			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
 
 			diff := diffCols(baseCols, columnNames)
@@ -76,25 +67,6 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 			}
 		}
 		result.OperationType = string(oplog.GetOperationType())
-	}
-	return
-}
-
-func buildTable(columnNames []string, tableName string, document map[string]interface{}, queryTracker map[string]struct{}) (result string) {
-	var tableSQL strings.Builder
-	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", tableName))
-	tableSQL.WriteString("(")
-
-	if _, ok := queryTracker[tableName]; !ok {
-		for idx, col := range columnNames {
-			tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, getSQLType(document[col]), getConstraint(col))))
-			if idx != len(columnNames)-1 {
-				tableSQL.WriteString(", ")
-			}
-		}
-		tableSQL.WriteString(");")
-		result = tableSQL.String()
-		queryTracker[tableName] = struct{}{}
 	}
 	return
 }
@@ -128,14 +100,6 @@ func getSQLType(input interface{}) string {
 		return BOOL
 	default:
 		return VARCHAR
-	}
-}
-
-func getConstraint(input string) string {
-	if input == "_id" {
-		return "PRIMARY KEY"
-	} else {
-		return ""
 	}
 }
 

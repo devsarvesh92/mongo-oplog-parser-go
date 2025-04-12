@@ -6,6 +6,12 @@ import (
 	"strings"
 )
 
+const (
+	Float   = "FLOAT"
+	VARCHAR = "VARCHAR(255)"
+	BOOL    = "BOOLEAN"
+)
+
 func FormatColValue(input interface{}) string {
 	switch input.(type) {
 	case int, int8, int16, float32, float64:
@@ -35,4 +41,23 @@ func BuildWhereClause(colValues map[string]interface{}) string {
 		whcl.WriteString(fmt.Sprintf("%v = %v;", col, FormatColValue(val)))
 	}
 	return whcl.String()
+}
+
+func GetSQLType(input interface{}) string {
+	switch input.(type) {
+	case int, int8, int16, float32, float64:
+		return Float
+	case bool:
+		return BOOL
+	default:
+		return VARCHAR
+	}
+}
+
+func GetConstraint(input string) string {
+	if input == "_id" {
+		return "PRIMARY KEY"
+	} else {
+		return ""
+	}
 }
