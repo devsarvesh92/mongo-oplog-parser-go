@@ -30,19 +30,20 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	for _, oplog := range oplogs {
 		switch {
 		case oplog.IsInsert():
-			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
 
 			schemaSQL := schemaStrategy.Generate(oplog, queryTracker)
 			if schemaSQL != "" {
-				result.SchemaSQL = schemaSQL
+				result.SQL = append(result.SQL, schemaSQL)
 			}
 
 			createSQL := tableStrategy.Generate(oplog, queryTracker)
 			if createSQL != "" {
-				result.CreateSQL = createSQL
+				result.SQL = append(result.SQL, createSQL)
 			}
 
-			result.AlterSQL = alterStrategy.Generate(oplog, queryTracker)
+			result.SQL = append(result.SQL, alterStrategy.Generate(oplog, queryTracker)...)
+
+			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
 
 		case oplog.IsUpdate():
 			updateSQL := updateStrategy.Generate(oplog, queryTracker)
