@@ -1,4 +1,4 @@
-package oplog
+package service
 
 import (
 	"fmt"
@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
+	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/strategy"
 )
 
 const (
@@ -25,6 +26,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 
 	var baseCols []string
 	queryTracker := make(map[string]struct{})
+	insertStrategy := strategy.NewInsertStrategy()
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
@@ -49,7 +51,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 			}
 			schemaSQL := buildSchema(oplog, namespace, queryTracker)
 			createSQL := buildTable(columnNames, tableName, oplog.O, queryTracker)
-			result.SQL = append(result.SQL, buildInsert(columnNames, oplog, queryTracker))
+			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
 
 			diff := diffCols(baseCols, columnNames)
 			for _, diffCol := range diff {
