@@ -1,4 +1,4 @@
-package service
+package parser
 
 import (
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
