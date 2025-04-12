@@ -3,7 +3,6 @@ package parser
 import (
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/strategy"
-	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/util"
 )
 
 const (
@@ -20,7 +19,6 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 		return
 	}
 
-	var baseCols []string
 	queryTracker := make(map[string]model.QueryTracker)
 	insertStrategy := strategy.NewInsertStrategy()
 	updateStrategy := strategy.NewUpdateStrategy()
@@ -29,24 +27,15 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	tableStrategy := strategy.NewTableStrategy()
 	alterStrategy := strategy.NewAlterStrategy()
 
-	for id, oplog := range oplogs {
-		columnNames := util.GetCols(oplog.O)
+	for _, oplog := range oplogs {
 		switch {
 		case oplog.IsInsert():
-			if id == 0 {
-				baseCols = columnNames
-			}
+
 			schemaSQL := schemaStrategy.Generate(oplog, queryTracker)
 			createSQL := tableStrategy.Generate(oplog, queryTracker)
 			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
+			result.AlterSQL = alterStrategy.Generate(oplog, queryTracker)
 
-			diff := util.DiffCols(baseCols, columnNames)
-			for _, diffCol := range diff {
-				alterQuery := alterStrategy.Generate(oplog, diffCol, queryTracker)
-				if alterQuery != "" {
-					result.AlterSQL = append(result.AlterSQL, alterQuery)
-				}
-			}
 			if schemaSQL != "" {
 				result.SchemaSQL = schemaSQL
 			}
@@ -54,6 +43,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 			if createSQL != "" {
 				result.CreateSQL = createSQL
 			}
+
 		case oplog.IsUpdate():
 			updateSQL := updateStrategy.Generate(oplog, queryTracker)
 			if updateSQL != "" {

@@ -13,16 +13,41 @@ func NewAlterStrategy() *AlterStrategy {
 	return &AlterStrategy{}
 }
 
-func (s *AlterStrategy) Generate(oplog model.Oplog, col string, queryTracker map[string]model.QueryTracker) (result string) {
-	alterResult := fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, util.GetSQLType(util.FormatColValue(oplog.O[col])))
+func (s *AlterStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result []string) {
+	alteredCols := s.identifyAlteredCols(oplog, queryTracker)
 
-	if _, ok := queryTracker[alterResult]; !ok {
-		result = alterResult
-		queryTracker[alterResult] = model.QueryTracker{
-			Type:    model.ALTER_TABLE,
-			Query:   result,
-			Columns: []string{col},
+	for _, col := range alteredCols {
+		alterResult := fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, util.GetSQLType(util.FormatColValue(oplog.O[col])))
+
+		if _, ok := queryTracker[alterResult]; !ok {
+			result = append(result, alterResult)
+
+			queryTracker[alterResult] = model.QueryTracker{
+				Type:    model.ALTER_TABLE,
+				Query:   alterResult,
+				Columns: []string{col},
+			}
+
 		}
 	}
+	return
+}
+
+func (s *AlterStrategy) identifyAlteredCols(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (altertedCols []string) {
+	tableName, _ := oplog.GetTableName()
+	tableQuery, ok := queryTracker[tableName]
+	if !ok {
+		return
+	}
+
+	cols := tableQuery.Columns
+
+	if len(cols) < 1 {
+		return
+	}
+
+	newCols := util.GetCols(oplog.O)
+	altertedCols = util.DiffCols(cols, newCols)
+
 	return
 }
