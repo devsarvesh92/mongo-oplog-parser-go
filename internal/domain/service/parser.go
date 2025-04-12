@@ -1,11 +1,9 @@
 package service
 
 import (
-	"fmt"
-	"sort"
-
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/strategy"
+	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/util"
 )
 
 const (
@@ -29,9 +27,10 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	deleteStrategy := strategy.NewDeleteStrategy()
 	schemaStrategy := strategy.NewSchemaStrategy()
 	tableStrategy := strategy.NewTableStrategy()
+	alterStrategy := strategy.NewAlterStrategy()
 
 	for id, oplog := range oplogs {
-		columnNames := getCols(oplog.O)
+		columnNames := util.GetCols(oplog.O)
 		switch {
 		case oplog.IsInsert():
 			if id == 0 {
@@ -41,9 +40,9 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 			createSQL := tableStrategy.Generate(oplog, queryTracker)
 			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker))
 
-			diff := diffCols(baseCols, columnNames)
+			diff := util.DiffCols(baseCols, columnNames)
 			for _, diffCol := range diff {
-				alterQuery := buildAlter(diffCol, oplog, queryTracker)
+				alterQuery := alterStrategy.Generate(oplog, diffCol, queryTracker)
 				if alterQuery != "" {
 					result.AlterSQL = append(result.AlterSQL, alterQuery)
 				}
@@ -69,63 +68,4 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 		result.OperationType = string(oplog.GetOperationType())
 	}
 	return
-}
-
-func buildAlter(col string, oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
-	alterResult := fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
-
-	if _, ok := queryTracker[alterResult]; !ok {
-		result = alterResult
-		queryTracker[alterResult] = struct{}{}
-	}
-	return
-}
-
-func formatColValue(input interface{}) string {
-	switch input.(type) {
-	case int, int8, int16, float32, float64:
-		return fmt.Sprintf("%v", input)
-	case bool:
-		return fmt.Sprintf("%t", input)
-	default:
-		return fmt.Sprintf("'%v'", input)
-	}
-}
-
-func getSQLType(input interface{}) string {
-	switch input.(type) {
-	case int, int8, int16, float32, float64:
-		return Float
-	case bool:
-		return BOOL
-	default:
-		return VARCHAR
-	}
-}
-
-func diffCols(orgCols []string, newCols []string) (diff []string) {
-
-	colMap := make(map[string]struct{})
-
-	for _, col := range orgCols {
-		colMap[col] = struct{}{}
-	}
-
-	for _, nc := range newCols {
-		if _, ok := colMap[nc]; !ok {
-			diff = append(diff, nc)
-		}
-	}
-	return diff
-}
-
-func getCols(document map[string]interface{}) []string {
-	columnNames := make([]string, 0)
-
-	for col, _ := range document {
-		columnNames = append(columnNames, col)
-	}
-
-	sort.Strings(columnNames)
-	return columnNames
 }

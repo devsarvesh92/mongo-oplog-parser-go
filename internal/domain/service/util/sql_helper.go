@@ -61,3 +61,19 @@ func GetConstraint(input string) string {
 		return ""
 	}
 }
+
+func DiffCols(orgCols []string, newCols []string) (diff []string) {
+
+	colMap := make(map[string]struct{})
+
+	for _, col := range orgCols {
+		colMap[col] = struct{}{}
+	}
+
+	for _, nc := range newCols {
+		if _, ok := colMap[nc]; !ok {
+			diff = append(diff, nc)
+		}
+	}
+	return diff
+}
