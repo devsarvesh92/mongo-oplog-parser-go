@@ -27,6 +27,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	var baseCols []string
 	queryTracker := make(map[string]struct{})
 	insertStrategy := strategy.NewInsertStrategy()
+	updateStrategy := strategy.NewUpdateStrategy()
 
 	for id, oplog := range oplogs {
 		columnNames := getCols(oplog.O)
@@ -68,7 +69,7 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 				result.CreateSQL = createSQL
 			}
 		case oplog.IsUpdate():
-			updateSQL := buildUpdate(oplog, tableName, queryTracker)
+			updateSQL := updateStrategy.Generate(oplog, queryTracker)
 			if updateSQL != "" {
 				result.SQL = append(result.SQL, updateSQL)
 			}
@@ -102,22 +103,6 @@ func buildTable(columnNames []string, tableName string, document map[string]inte
 	return
 }
 
-func buildInsert(columnNames []string, oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
-
-	values := make([]string, 0)
-	for _, col := range columnNames {
-		values = append(values, formatColValue(oplog.O[col]))
-	}
-	insResult := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
-
-	if _, ok := queryTracker[insResult]; !ok {
-		queryTracker[insResult] = struct{}{}
-		result = insResult
-		return
-	}
-	return
-}
-
 func buildAlter(col string, oplog model.Oplog, queryTracker map[string]struct{}) (result string) {
 	alterResult := fmt.Sprintf("ALTER TABLE %v ADD %v %v;", oplog.Ns, col, getSQLType(formatColValue(oplog.O[col])))
 
@@ -135,37 +120,6 @@ func buildSchema(oplog model.Oplog, namespace string, queryTracker map[string]st
 		queryTracker[namespace] = struct{}{}
 	}
 	return
-}
-
-func buildUpdate(oplog model.Oplog, tableName string, queryTracker map[string]struct{}) (result string) {
-	var query strings.Builder
-	query.WriteString("UPDATE ")
-	query.WriteString(tableName)
-	query.WriteString(" SET")
-
-	if diff, ok := oplog.O["diff"].(map[string]interface{}); ok {
-		update, _ := diff["u"].(map[string]interface{})
-		for col, val := range update {
-			query.WriteString(fmt.Sprintf(" %v = %v", col, formatColValue(val)))
-		}
-
-		delete, _ := diff["d"].(map[string]interface{})
-		for col, _ := range delete {
-			query.WriteString(fmt.Sprintf(" %v = %v", col, "NULL"))
-		}
-	}
-
-	query.WriteString(buildWhereClause(oplog.O2))
-
-	updateResult := query.String()
-
-	if _, ok := queryTracker[updateResult]; !ok {
-		result = updateResult
-		queryTracker[updateResult] = struct{}{}
-	}
-
-	return
-
 }
 
 func buildDelete(oplog model.Oplog, tableName string, queryTracker map[string]struct{}) (result string) {

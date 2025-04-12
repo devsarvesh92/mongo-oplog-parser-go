@@ -3,6 +3,7 @@ package util
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 func FormatColValue(input interface{}) string {
@@ -25,4 +26,13 @@ func GetCols(document map[string]interface{}) []string {
 
 	sort.Strings(columnNames)
 	return columnNames
+}
+
+func BuildWhereClause(colValues map[string]interface{}) string {
+	var whcl strings.Builder
+	whcl.WriteString(" WHERE ")
+	for col, val := range colValues {
+		whcl.WriteString(fmt.Sprintf("%v = %v;", col, FormatColValue(val)))
+	}
+	return whcl.String()
 }
