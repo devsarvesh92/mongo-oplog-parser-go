@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -11,6 +13,8 @@ const (
 	VARCHAR = "VARCHAR(255)"
 	BOOL    = "BOOLEAN"
 )
+
+var GenerateIDFunc = GenerateID
 
 func FormatColValue(input interface{}) string {
 	switch input.(type) {
@@ -76,4 +80,8 @@ func DiffCols(orgCols []string, newCols []string) (diff []string) {
 		}
 	}
 	return diff
+}
+
+func GenerateID() string {
+	return uuid.New().String()
 }

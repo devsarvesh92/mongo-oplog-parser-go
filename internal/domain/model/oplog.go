@@ -30,13 +30,22 @@ func (o *Oplog) GetDatabaseName() (string, error) {
 	return splitedStrs[0], nil
 }
 
-func (o *Oplog) GetTableName() (string, error) {
+func (o *Oplog) GetFullTableName() (string, error) {
 	splitedStrs := strings.Split(o.Ns, ".")
 
 	if len(splitedStrs) <= 1 {
 		return "", errors.New("invalid value of table")
 	}
 	return o.Ns, nil
+}
+
+func (o *Oplog) GetShortTableName() (string, error) {
+	splitedStrs := strings.Split(o.Ns, ".")
+
+	if len(splitedStrs) <= 1 {
+		return "", errors.New("invalid value of table")
+	}
+	return splitedStrs[1], nil
 }
 
 func (o *Oplog) GetOperationType() OperationType {
@@ -56,6 +65,11 @@ func (o *Oplog) IsDelete() bool {
 }
 
 func (o *Oplog) IsNestedDocument() (result bool) {
+
+	if !o.IsInsert() {
+		result = false
+		return
+	}
 
 	for _, v := range o.O {
 		valueType := reflect.TypeOf(v)

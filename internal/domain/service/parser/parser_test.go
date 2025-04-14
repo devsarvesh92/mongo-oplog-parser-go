@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
+	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/util"
 )
 
 func TestGenerateInsertStatement(t *testing.T) {
@@ -222,6 +223,54 @@ func TestAlterTableWithMultipleOplogs(t *testing.T) {
 		got := GenerateSQL(test.oplogs)
 
 		if !reflect.DeepEqual(got, test.expected) {
+			t.Errorf("Expected %v Got %v", test.expected, got)
+		}
+	}
+}
+
+func TestNestedOplogs(t *testing.T) {
+	originalGenerateID := util.GenerateIDFunc
+	util.GenerateIDFunc = func() string {
+		return "14798c213f273a7ca2cf5199"
+	}
+	defer func() {
+		util.GenerateIDFunc = originalGenerateID
+	}()
+
+	tests := []struct {
+		name     string
+		oplogs   []model.Oplog
+		expected model.Result
+	}{{name: "Nested oplog", oplogs: []model.Oplog{model.Oplog{
+		Op: string(model.OpInsert),
+		Ns: "test.student",
+		O: map[string]interface{}{
+			"_id":           "635b79e231d82a8ab1de863b",
+			"name":          "Selena Miller",
+			"roll_no":       51,
+			"is_graduated":  false,
+			"date_of_birth": "2000-01-30",
+			"phone": map[string]interface{}{
+				"personal": "7678456640",
+				"work":     "8130097989",
+			},
+		},
+	}}, expected: model.Result{
+		OperationType: string(model.OpInsert),
+		SQL: []string{
+			"CREATE SCHEMA test;",
+			"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
+			"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+			"CREATE TABLE test.student_phone (_id VARCHAR(255) PRIMARY KEY, personal VARCHAR(255), student__id VARCHAR(255), work VARCHAR(255));",
+			"INSERT INTO test.student_phone (_id, personal, student__id, work) VALUES ('14798c213f273a7ca2cf5199', '7678456640', '635b79e231d82a8ab1de863b', '8130097989');",
+		},
+	}}}
+
+	for _, test := range tests {
+		result := GenerateSQL(test.oplogs)
+		got := result.SQL
+
+		if !reflect.DeepEqual(got, test.expected.SQL) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
 		}
 	}

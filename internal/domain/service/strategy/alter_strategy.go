@@ -34,7 +34,7 @@ func (s *AlterStrategy) Generate(oplog model.Oplog, queryTracker map[string]mode
 }
 
 func (s *AlterStrategy) identifyAlteredCols(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (altertedCols []string) {
-	tableName, _ := oplog.GetTableName()
+	tableName, _ := oplog.GetFullTableName()
 	tableQuery, ok := queryTracker[tableName]
 	if !ok {
 		return

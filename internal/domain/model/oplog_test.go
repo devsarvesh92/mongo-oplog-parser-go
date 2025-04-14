@@ -50,7 +50,7 @@ func TestOplog(t *testing.T) {
 
 	for _, test := range tests {
 		gotDBName, _ := test.input.GetDatabaseName()
-		gotTableName, _ := test.input.GetTableName()
+		gotTableName, _ := test.input.GetFullTableName()
 		gotOperation := test.input.GetOperationType()
 		isNestedDocument := test.input.IsNestedDocument()
 

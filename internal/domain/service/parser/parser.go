@@ -23,9 +23,12 @@ func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	insertStrategy := strategy.NewInsertStrategy()
 	updateStrategy := strategy.NewUpdateStrategy()
 	deleteStrategy := strategy.NewDeleteStrategy()
+	nestedInsertStrategy := strategy.NewNestedInsertStragey()
 
 	for _, oplog := range oplogs {
 		switch {
+		case oplog.IsNestedDocument():
+			result.SQL = append(result.SQL, nestedInsertStrategy.Generate(oplog, queryTracker)...)
 		case oplog.IsInsert():
 			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker)...)
 		case oplog.IsUpdate():

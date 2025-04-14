@@ -17,7 +17,7 @@ func NewDeleteStrategy() *DeleteStrategy {
 
 func (s *DeleteStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
 	var queryBuilder strings.Builder
-	tableName, err := oplog.GetTableName()
+	tableName, err := oplog.GetFullTableName()
 
 	if err != nil {
 		log.Printf("Error occured while extracting table name %v", err)
