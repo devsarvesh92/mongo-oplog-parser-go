@@ -28,6 +28,8 @@ func (s *NestedInsertStratgey) Generate(oplog model.Oplog, queryTracker map[stri
 func (s *NestedInsertStratgey) flatenOplog(oplog model.Oplog) (oplogs []model.Oplog) {
 	// Identify nested properties
 	// Build seperate oplog for it
+	columnNames := util.GetCols(oplog.O)
+
 	parent := model.Oplog{
 		Op: string(model.OpInsert),
 		Ns: oplog.Ns,
@@ -35,15 +37,18 @@ func (s *NestedInsertStratgey) flatenOplog(oplog model.Oplog) (oplogs []model.Op
 	}
 	childOplogs := make([]model.Oplog, 0)
 
-	for key, value := range oplog.O {
+	for _, col := range columnNames {
+		value := oplog.O[col]
 		valueType := reflect.TypeOf(value)
-
 		switch valueType.Kind() {
 		case reflect.Map:
-			child := s.parseDocument(value.(map[string]interface{}), oplog, key)
+			child := s.parseMapNode(value.(map[string]interface{}), oplog, col)
 			childOplogs = append(childOplogs, child)
+		case reflect.Array | reflect.Slice:
+			children := s.parseListNode(value.([]map[string]interface{}), oplog, col)
+			childOplogs = append(childOplogs, children...)
 		default:
-			parent.O[key] = value
+			parent.O[col] = value
 		}
 	}
 
@@ -53,7 +58,7 @@ func (s *NestedInsertStratgey) flatenOplog(oplog model.Oplog) (oplogs []model.Op
 	return
 }
 
-func (s *NestedInsertStratgey) parseDocument(doc map[string]interface{}, parent model.Oplog, tableName string) (oplog model.Oplog) {
+func (s *NestedInsertStratgey) parseMapNode(doc map[string]interface{}, parent model.Oplog, tableName string) (oplog model.Oplog) {
 
 	shTableName, _ := parent.GetShortTableName()
 	dbName, _ := parent.GetDatabaseName()
@@ -66,4 +71,12 @@ func (s *NestedInsertStratgey) parseDocument(doc map[string]interface{}, parent 
 		Ns: fmt.Sprintf("%v.%v_%v", dbName, shTableName, tableName),
 		O:  doc,
 	}
+}
+
+func (s *NestedInsertStratgey) parseListNode(docs []map[string]interface{}, parent model.Oplog, tableName string) (oplogs []model.Oplog) {
+
+	for _, doc := range docs {
+		oplogs = append(oplogs, s.parseMapNode(doc, parent, tableName))
+	}
+	return
 }

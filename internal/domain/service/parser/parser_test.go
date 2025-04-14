@@ -254,6 +254,16 @@ func TestNestedOplogs(t *testing.T) {
 				"personal": "7678456640",
 				"work":     "8130097989",
 			},
+			"address": []map[string]interface{}{
+				{
+					"line1": "481 Harborsburgh",
+					"zip":   "89799",
+				},
+				{
+					"line1": "329 Flatside",
+					"zip":   "80872",
+				},
+			},
 		},
 	}}, expected: model.Result{
 		OperationType: string(model.OpInsert),
@@ -261,6 +271,9 @@ func TestNestedOplogs(t *testing.T) {
 			"CREATE SCHEMA test;",
 			"CREATE TABLE test.student (_id VARCHAR(255) PRIMARY KEY, date_of_birth VARCHAR(255), is_graduated BOOLEAN, name VARCHAR(255), roll_no FLOAT);",
 			"INSERT INTO test.student (_id, date_of_birth, is_graduated, name, roll_no) VALUES ('635b79e231d82a8ab1de863b', '2000-01-30', false, 'Selena Miller', 51);",
+			"CREATE TABLE test.student_address (_id VARCHAR(255) PRIMARY KEY, line1 VARCHAR(255), student__id VARCHAR(255), zip VARCHAR(255));",
+			"INSERT INTO test.student_address (_id, line1, student__id, zip) VALUES ('14798c213f273a7ca2cf5199', '481 Harborsburgh', '635b79e231d82a8ab1de863b', '89799');",
+			"INSERT INTO test.student_address (_id, line1, student__id, zip) VALUES ('14798c213f273a7ca2cf5199', '329 Flatside', '635b79e231d82a8ab1de863b', '80872');",
 			"CREATE TABLE test.student_phone (_id VARCHAR(255) PRIMARY KEY, personal VARCHAR(255), student__id VARCHAR(255), work VARCHAR(255));",
 			"INSERT INTO test.student_phone (_id, personal, student__id, work) VALUES ('14798c213f273a7ca2cf5199', '7678456640', '635b79e231d82a8ab1de863b', '8130097989');",
 		},
