@@ -17,7 +17,7 @@ func NewNestedInsertStragey() *NestedInsertStratgey {
 }
 
 func (s *NestedInsertStratgey) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result []string) {
-	oplogs := flatenOplog(oplog)
+	oplogs := s.flatenOplog(oplog)
 
 	for _, oplog := range oplogs {
 		result = append(result, s.InsertStrategy.Generate(oplog, queryTracker)...)
@@ -25,7 +25,7 @@ func (s *NestedInsertStratgey) Generate(oplog model.Oplog, queryTracker map[stri
 	return
 }
 
-func flatenOplog(oplog model.Oplog) (oplogs []model.Oplog) {
+func (s *NestedInsertStratgey) flatenOplog(oplog model.Oplog) (oplogs []model.Oplog) {
 	// Identify nested properties
 	// Build seperate oplog for it
 	parent := model.Oplog{
@@ -33,8 +33,6 @@ func flatenOplog(oplog model.Oplog) (oplogs []model.Oplog) {
 		Ns: oplog.Ns,
 		O:  map[string]interface{}{},
 	}
-	shTableName, _ := oplog.GetShortTableName()
-	flTableName, _ := oplog.GetFullTableName()
 	childOplogs := make([]model.Oplog, 0)
 
 	for key, value := range oplog.O {
@@ -42,15 +40,7 @@ func flatenOplog(oplog model.Oplog) (oplogs []model.Oplog) {
 
 		switch valueType.Kind() {
 		case reflect.Map:
-			vals := value.(map[string]interface{})
-			vals["_id"] = util.GenerateIDFunc()
-			vals[fmt.Sprintf("%v__id", shTableName)] = oplog.O["_id"]
-
-			child := model.Oplog{
-				Op: string(model.OpInsert),
-				Ns: fmt.Sprintf("%v_%v", flTableName, key),
-				O:  vals,
-			}
+			child := s.parseDocument(value.(map[string]interface{}), oplog, key)
 			childOplogs = append(childOplogs, child)
 		default:
 			parent.O[key] = value
@@ -61,4 +51,19 @@ func flatenOplog(oplog model.Oplog) (oplogs []model.Oplog) {
 	oplogs = append(oplogs, childOplogs...)
 
 	return
+}
+
+func (s *NestedInsertStratgey) parseDocument(doc map[string]interface{}, parent model.Oplog, tableName string) (oplog model.Oplog) {
+
+	shTableName, _ := parent.GetShortTableName()
+	dbName, _ := parent.GetDatabaseName()
+
+	doc["_id"] = util.GenerateIDFunc()
+	doc[fmt.Sprintf("%v__id", shTableName)] = parent.O["_id"]
+
+	return model.Oplog{
+		Op: string(model.OpInsert),
+		Ns: fmt.Sprintf("%v.%v_%v", dbName, shTableName, tableName),
+		O:  doc,
+	}
 }
