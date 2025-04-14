@@ -9,6 +9,8 @@ import (
 )
 
 func TestGenerateInsertStatement(t *testing.T) {
+	mongoOplogParser := getMongoOplogParser()
+
 	tests := []struct {
 		name     string
 		oplog    model.Oplog
@@ -34,7 +36,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL([]model.Oplog{test.oplog})
+		got := mongoOplogParser.GenerateSQL([]model.Oplog{test.oplog})
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -43,6 +45,7 @@ func TestGenerateInsertStatement(t *testing.T) {
 }
 
 func TestGenerateUpdateStatement(t *testing.T) {
+	mongoOplogParser := getMongoOplogParser()
 	tests := []struct {
 		name     string
 		oplog    model.Oplog
@@ -95,7 +98,7 @@ func TestGenerateUpdateStatement(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL([]model.Oplog{test.oplog})
+		got := mongoOplogParser.GenerateSQL([]model.Oplog{test.oplog})
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -104,6 +107,7 @@ func TestGenerateUpdateStatement(t *testing.T) {
 }
 
 func TestGenerateDeleteStatement(t *testing.T) {
+	mongoOplogParser := getMongoOplogParser()
 	tests := []struct {
 		name     string
 		oplog    model.Oplog
@@ -126,7 +130,7 @@ func TestGenerateDeleteStatement(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL([]model.Oplog{test.oplog})
+		got := mongoOplogParser.GenerateSQL([]model.Oplog{test.oplog})
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -135,6 +139,7 @@ func TestGenerateDeleteStatement(t *testing.T) {
 }
 
 func TestMultipleOplogs(t *testing.T) {
+	mongoOplogParser := getMongoOplogParser()
 	tests := []struct {
 		name     string
 		oplogs   []model.Oplog
@@ -173,7 +178,7 @@ func TestMultipleOplogs(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		got := GenerateSQL(test.oplogs)
+		got := mongoOplogParser.GenerateSQL(test.oplogs)
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -182,6 +187,7 @@ func TestMultipleOplogs(t *testing.T) {
 }
 
 func TestAlterTableWithMultipleOplogs(t *testing.T) {
+	mongoOplogParser := getMongoOplogParser()
 	tests := []struct {
 		name     string
 		oplogs   []model.Oplog
@@ -220,7 +226,7 @@ func TestAlterTableWithMultipleOplogs(t *testing.T) {
 	},
 	}
 	for _, test := range tests {
-		got := GenerateSQL(test.oplogs)
+		got := mongoOplogParser.GenerateSQL(test.oplogs)
 
 		if !reflect.DeepEqual(got, test.expected) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
@@ -229,6 +235,7 @@ func TestAlterTableWithMultipleOplogs(t *testing.T) {
 }
 
 func TestNestedOplogs(t *testing.T) {
+	mongoOplogParser := getMongoOplogParser()
 	originalGenerateID := util.GenerateIDFunc
 	util.GenerateIDFunc = func() string {
 		return "14798c213f273a7ca2cf5199"
@@ -280,11 +287,15 @@ func TestNestedOplogs(t *testing.T) {
 	}}}
 
 	for _, test := range tests {
-		result := GenerateSQL(test.oplogs)
+		result := mongoOplogParser.GenerateSQL(test.oplogs)
 		got := result.SQL
 
 		if !reflect.DeepEqual(got, test.expected.SQL) {
 			t.Errorf("Expected %v Got %v", test.expected, got)
 		}
 	}
+}
+
+func getMongoOplogParser() MongoOplogParser {
+	return *NewMongoOplogParser()
 }

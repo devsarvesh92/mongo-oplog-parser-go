@@ -11,33 +11,47 @@ const (
 	BOOL    = "BOOLEAN"
 )
 
+type MongoOplogParser struct {
+	InsertStrategy       *strategy.InsertStrategy
+	UpdateStrategy       *strategy.UpdateStrategy
+	DeleteStrategy       *strategy.DeleteStrategy
+	NestedInsertStrategy *strategy.NestedInsertStratgey
+}
+
+// This will be moved out.
+// Keeping it here for now
+func NewMongoOplogParser() *MongoOplogParser {
+	return &MongoOplogParser{
+		InsertStrategy:       strategy.NewInsertStrategy(),
+		DeleteStrategy:       strategy.NewDeleteStrategy(),
+		UpdateStrategy:       strategy.NewUpdateStrategy(),
+		NestedInsertStrategy: strategy.NewNestedInsertStragey(),
+	}
+}
+
 // GenerateSQL transforms a set of MongoDB oplogs into SQL statements.
 // It analyzes each oplog and generates the appropriate SQL commands including
 // schema creation, table creation, inserts, updates, and deletes.
-func GenerateSQL(oplogs []model.Oplog) (result model.Result) {
+func (s *MongoOplogParser) GenerateSQL(oplogs []model.Oplog) (result model.Result) {
 	if len(oplogs) == 0 {
 		return
 	}
 
 	queryTracker := make(map[string]model.QueryTracker)
-	insertStrategy := strategy.NewInsertStrategy()
-	updateStrategy := strategy.NewUpdateStrategy()
-	deleteStrategy := strategy.NewDeleteStrategy()
-	nestedInsertStrategy := strategy.NewNestedInsertStragey()
 
 	for _, oplog := range oplogs {
 		switch {
 		case oplog.IsNestedDocument():
-			result.SQL = append(result.SQL, nestedInsertStrategy.Generate(oplog, queryTracker)...)
+			result.SQL = append(result.SQL, s.NestedInsertStrategy.Generate(oplog, queryTracker)...)
 		case oplog.IsInsert():
-			result.SQL = append(result.SQL, insertStrategy.Generate(oplog, queryTracker)...)
+			result.SQL = append(result.SQL, s.InsertStrategy.Generate(oplog, queryTracker)...)
 		case oplog.IsUpdate():
-			updateSQL := updateStrategy.Generate(oplog, queryTracker)
+			updateSQL := s.UpdateStrategy.Generate(oplog, queryTracker)
 			if updateSQL != "" {
 				result.SQL = append(result.SQL, updateSQL)
 			}
 		case oplog.IsDelete():
-			deleteSQL := deleteStrategy.Generate(oplog, queryTracker)
+			deleteSQL := s.DeleteStrategy.Generate(oplog, queryTracker)
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
 			}
