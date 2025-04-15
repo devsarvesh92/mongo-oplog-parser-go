@@ -261,12 +261,12 @@ func TestNestedOplogs(t *testing.T) {
 				"personal": "7678456640",
 				"work":     "8130097989",
 			},
-			"address": []map[string]interface{}{
-				{
+			"address": []interface{}{
+				map[string]interface{}{
 					"line1": "481 Harborsburgh",
 					"zip":   "89799",
 				},
-				{
+				map[string]interface{}{
 					"line1": "329 Flatside",
 					"zip":   "80872",
 				},
