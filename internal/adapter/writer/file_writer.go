@@ -48,7 +48,7 @@ func (s *FileWriter) Close() error {
 	err := s.file.Close()
 
 	if err != nil {
-		fmt.Errorf("Error occured while closing file %w", err)
+		return fmt.Errorf("error occured while closing file %w", err)
 	}
 
 	return nil

@@ -5,6 +5,20 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Debug MongoDB Oplog Parser",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/mongo-oplog-parser/main.go",
+            "args": [
+                "-f",
+                "/Users/admin/Development/learn-go/mongo-oplog-parser-go/internal/adapter/reader/test_data/sample.json",
+                "-o",
+                "/tmp/op.sql"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
             "name": "Process",
             "type": "go",
             "request": "attach",

@@ -45,7 +45,7 @@ func (s *NestedInsertStratgey) flatenOplog(oplog model.Oplog) (oplogs []model.Op
 			child := s.parseMapNode(value.(map[string]interface{}), oplog, col)
 			childOplogs = append(childOplogs, child)
 		case reflect.Array | reflect.Slice:
-			children := s.parseListNode(value.([]map[string]interface{}), oplog, col)
+			children := s.parseListNode(value.([]interface{}), oplog, col)
 			childOplogs = append(childOplogs, children...)
 		default:
 			parent.O[col] = value
@@ -73,10 +73,10 @@ func (s *NestedInsertStratgey) parseMapNode(doc map[string]interface{}, parent m
 	}
 }
 
-func (s *NestedInsertStratgey) parseListNode(docs []map[string]interface{}, parent model.Oplog, tableName string) (oplogs []model.Oplog) {
+func (s *NestedInsertStratgey) parseListNode(docs []interface{}, parent model.Oplog, tableName string) (oplogs []model.Oplog) {
 
 	for _, doc := range docs {
-		oplogs = append(oplogs, s.parseMapNode(doc, parent, tableName))
+		oplogs = append(oplogs, s.parseMapNode(doc.(map[string]interface{}), parent, tableName))
 	}
 	return
 }
