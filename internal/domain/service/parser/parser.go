@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"log"
+
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/strategy"
 )
@@ -53,6 +55,8 @@ func (s *MongoOplogParser) GenerateSQL(oplogs []model.Oplog) (result model.Resul
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
 			}
+		default:
+			log.Printf("Unknown operation type: %s", oplog.Op)
 		}
 		result.OperationType = string(oplog.GetOperationType())
 	}
