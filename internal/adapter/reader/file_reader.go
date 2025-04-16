@@ -47,12 +47,6 @@ func (r *FileReader) ReadOplog() (oplog model.Oplog, err error) {
 	return oplog, nil
 }
 
-func (s *FileReader) Close() error {
-	err := s.file.Close()
-
-	if err != nil {
-		return fmt.Errorf("error occured while closing file %w", err)
-	}
-
-	return nil
+func (s *FileReader) Close() {
+	s.file.Close()
 }

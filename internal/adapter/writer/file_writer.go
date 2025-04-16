@@ -44,12 +44,6 @@ func (s *FileWriter) WriteSQL(sql string) error {
 	return nil
 }
 
-func (s *FileWriter) Close() error {
-	err := s.file.Close()
-
-	if err != nil {
-		return fmt.Errorf("error occured while closing file %w", err)
-	}
-
-	return nil
+func (s *FileWriter) Close() {
+	s.file.Close()
 }

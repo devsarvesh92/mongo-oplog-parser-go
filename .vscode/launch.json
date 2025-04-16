@@ -14,7 +14,11 @@
                 "-f",
                 "mongodb://localhost:27017",
                 "-o",
-                "/tmp/op.sql"
+                "/tmp/op.sql",
+                "-t",
+                "mongo-file",
+                "-w",
+                "file"
             ],
             "cwd": "${workspaceFolder}"
         },

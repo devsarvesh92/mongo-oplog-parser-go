@@ -46,15 +46,19 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().StringP("Input", "f", "", "Source mongodb oplog")
-	rootCmd.Flags().StringP("Output", "o", "", "Destination SQL")
+	rootCmd.Flags().StringP("Source", "f", "", "Source mongodb oplog")
+	rootCmd.Flags().StringP("Desitination", "o", "", "Destination SQL")
+	rootCmd.Flags().StringP("SourceType", "t", "mongo-file", "Type of input (mongo-file, mongo-stream)")
+	rootCmd.Flags().StringP("DesitinationType", "w", "file", "Type of output (file, database)")
 }
 
 func generateSQL(cmd *cobra.Command, args []string) {
-	input, _ := cmd.Flags().GetString("Input")
-	output, _ := cmd.Flags().GetString("Output")
+	source, _ := cmd.Flags().GetString("Source")
+	destination, _ := cmd.Flags().GetString("Desitination")
+	sourceType, _ := cmd.Flags().GetString("SourceType")
+	destinationType, _ := cmd.Flags().GetString("DesitinationType")
 
-	oplogReader, err := reader.NewMongoReader(input)
+	oplogReader, err := reader.NewReader(reader.ReaderType(sourceType), source)
 
 	defer oplogReader.Close()
 
@@ -62,7 +66,7 @@ func generateSQL(cmd *cobra.Command, args []string) {
 		log.Fatalf("Unable to read file")
 	}
 
-	oplogWriter, err := writer.NewFileWriter(output)
+	oplogWriter, err := writer.NewWriter(writer.WriterType(destinationType), destination)
 
 	if err != nil {
 		log.Fatalf("Unable to create output")

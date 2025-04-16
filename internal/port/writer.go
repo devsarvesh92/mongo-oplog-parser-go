@@ -1,5 +1,6 @@
 package port
 
-type FileWriterPort interface {
+type SQLWriter interface {
 	WriteSQL(sql string) error
+	Close()
 }
