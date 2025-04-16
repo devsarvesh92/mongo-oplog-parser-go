@@ -54,7 +54,7 @@ func generateSQL(cmd *cobra.Command, args []string) {
 	input, _ := cmd.Flags().GetString("Input")
 	output, _ := cmd.Flags().GetString("Output")
 
-	oplogReader, err := reader.NewFileReader(input)
+	oplogReader, err := reader.NewMongoReader(input)
 
 	defer oplogReader.Close()
 
@@ -81,6 +81,7 @@ func generateSQL(cmd *cobra.Command, args []string) {
 
 		for _, sql := range result.SQL {
 			err := oplogWriter.WriteSQL(sql)
+			fmt.Println(sql)
 			if err != nil {
 				fmt.Printf("unable to write sql %v due to error %v", sql, err)
 			}

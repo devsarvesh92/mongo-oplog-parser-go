@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"sync"
 )
 
@@ -36,7 +35,6 @@ func (t *Tracker) Get(key string) (interface{}, bool) {
 	val, ok := t.M.Load(key)
 
 	if !ok {
-		fmt.Printf("Not found %v", key)
 		return "", false
 	}
 	return val, true

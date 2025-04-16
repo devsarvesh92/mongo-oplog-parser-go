@@ -55,6 +55,20 @@ func (s *MongoReader) ReadOplog() (model.Oplog, error) {
 		// Access the oplog collection
 		oplogCollection := s.client.Database("local").Collection("oplog.rs")
 
+		filter := bson.M{
+			"ns": bson.M{
+				"$not": bson.M{
+					"$in": []string{
+						"admin.system.keys",
+						"config.system.",
+						"local.system.",
+						"config.transactions",
+					},
+				},
+				"$regex": "^(?!admin\\.system\\.|config\\.system\\.|local\\.system\\.)",
+			},
+		}
+
 		// Create options for tailing the oplog
 		opts := options.Find().
 			SetCursorType(options.TailableAwait).
@@ -62,7 +76,7 @@ func (s *MongoReader) ReadOplog() (model.Oplog, error) {
 			SetBatchSize(1)
 
 		// Query the oplog, sorting by timestamp
-		cursor, err := oplogCollection.Find(s.ctx, bson.M{}, opts)
+		cursor, err := oplogCollection.Find(s.ctx, filter, opts)
 		if err != nil {
 			return model.Oplog{}, err
 		}

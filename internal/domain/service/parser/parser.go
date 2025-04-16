@@ -1,8 +1,6 @@
 package parser
 
 import (
-	"log"
-
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/strategy"
 )
@@ -43,22 +41,26 @@ func (s *MongoOplogParser) GenerateSQL(oplogs []model.Oplog) (result model.Resul
 		switch {
 		case oplog.IsNestedDocument():
 			result.SQL = append(result.SQL, s.NestedInsertStrategy.Generate(oplog)...)
+			result.OperationType = string(oplog.GetOperationType())
 		case oplog.IsInsert():
 			result.SQL = append(result.SQL, s.InsertStrategy.Generate(oplog)...)
+			result.OperationType = string(oplog.GetOperationType())
 		case oplog.IsUpdate():
 			updateSQL := s.UpdateStrategy.Generate(oplog)
 			if updateSQL != "" {
 				result.SQL = append(result.SQL, updateSQL)
+				result.OperationType = string(oplog.GetOperationType())
 			}
 		case oplog.IsDelete():
 			deleteSQL := s.DeleteStrategy.Generate(oplog)
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
+				result.OperationType = string(oplog.GetOperationType())
 			}
 		default:
-			log.Printf("Unknown operation type: %s", oplog.Op)
+			//
 		}
-		result.OperationType = string(oplog.GetOperationType())
+
 	}
 	return
 }
