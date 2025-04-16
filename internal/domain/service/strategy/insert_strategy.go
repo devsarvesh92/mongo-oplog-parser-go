@@ -12,28 +12,30 @@ type InsertStrategy struct {
 	SchemaStrategy *SchemaStrategy
 	TableStrategy  *TableStrategy
 	AlterStrategy  *AlterStrategy
+	Tracker        *model.Tracker
 }
 
-func NewInsertStrategy() *InsertStrategy {
+func NewInsertStrategy(tracker *model.Tracker) *InsertStrategy {
 	return &InsertStrategy{
-		SchemaStrategy: NewSchemaStrategy(),
-		TableStrategy:  NewTableStrategy(),
-		AlterStrategy:  NewAlterStrategy(),
+		SchemaStrategy: NewSchemaStrategy(tracker),
+		TableStrategy:  NewTableStrategy(tracker),
+		AlterStrategy:  NewAlterStrategy(tracker),
+		Tracker:        tracker,
 	}
 }
 
-func (s *InsertStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result []string) {
-	schemaSQL := s.SchemaStrategy.Generate(oplog, queryTracker)
+func (s *InsertStrategy) Generate(oplog model.Oplog) (result []string) {
+	schemaSQL := s.SchemaStrategy.Generate(oplog)
 	if schemaSQL != "" {
 		result = append(result, schemaSQL)
 	}
 
-	createSQL := s.TableStrategy.Generate(oplog, queryTracker)
+	createSQL := s.TableStrategy.Generate(oplog)
 	if createSQL != "" {
 		result = append(result, createSQL)
 	}
 
-	result = append(result, s.AlterStrategy.Generate(oplog, queryTracker)...)
+	result = append(result, s.AlterStrategy.Generate(oplog)...)
 
 	columnNames := util.GetCols(oplog.O)
 	values := make([]string, 0)
@@ -41,9 +43,9 @@ func (s *InsertStrategy) Generate(oplog model.Oplog, queryTracker map[string]mod
 		values = append(values, util.FormatColValue(oplog.O[col]))
 	}
 	insResult := fmt.Sprintf("INSERT INTO %v (%v) VALUES (%v);", oplog.Ns, strings.Join(columnNames, ", "), strings.Join(values, ", "))
-	if _, ok := queryTracker[insResult]; !ok {
+	if _, ok := s.Tracker.Get(insResult); !ok {
 		result = append(result, insResult)
-		queryTracker[insResult] = model.QueryTracker{Type: model.INSERT, Query: insResult, Columns: columnNames}
+		s.Tracker.Store(insResult, model.QueryTracker{Type: model.INSERT, Query: insResult, Columns: columnNames})
 		return
 	}
 	return

@@ -9,13 +9,15 @@ import (
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/util"
 )
 
-type TableStrategy struct{}
+type TableStrategy struct{ Tracker *model.Tracker }
 
-func NewTableStrategy() *TableStrategy {
-	return &TableStrategy{}
+func NewTableStrategy(tracker *model.Tracker) *TableStrategy {
+	return &TableStrategy{
+		Tracker: tracker,
+	}
 }
 
-func (s *TableStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
+func (s *TableStrategy) Generate(oplog model.Oplog) (result string) {
 	var tableSQL strings.Builder
 	tableName, err := oplog.GetFullTableName()
 	if err != nil {
@@ -27,7 +29,7 @@ func (s *TableStrategy) Generate(oplog model.Oplog, queryTracker map[string]mode
 	tableSQL.WriteString(fmt.Sprintf("CREATE TABLE %v ", tableName))
 	tableSQL.WriteString("(")
 
-	if _, ok := queryTracker[tableName]; !ok {
+	if _, ok := s.Tracker.Get(tableName); !ok {
 		for idx, col := range columnNames {
 			tableSQL.WriteString(strings.TrimSpace(fmt.Sprintf("%v %v %v", col, util.GetSQLType(oplog.O[col]), util.GetConstraint(col))))
 			if idx != len(columnNames)-1 {
@@ -37,11 +39,11 @@ func (s *TableStrategy) Generate(oplog model.Oplog, queryTracker map[string]mode
 		tableSQL.WriteString(");")
 		result = tableSQL.String()
 
-		queryTracker[tableName] = model.QueryTracker{
+		s.Tracker.Store(tableName, model.QueryTracker{
 			Type:    model.CREATE_TABLE,
 			Query:   result,
 			Columns: columnNames,
-		}
+		})
 
 	}
 	return

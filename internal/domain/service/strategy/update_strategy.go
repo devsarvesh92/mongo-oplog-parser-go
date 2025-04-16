@@ -9,13 +9,15 @@ import (
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/service/util"
 )
 
-type UpdateStrategy struct{}
-
-func NewUpdateStrategy() *UpdateStrategy {
-	return &UpdateStrategy{}
+type UpdateStrategy struct {
+	Tracker *model.Tracker
 }
 
-func (s *UpdateStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
+func NewUpdateStrategy(tracker *model.Tracker) *UpdateStrategy {
+	return &UpdateStrategy{tracker}
+}
+
+func (s *UpdateStrategy) Generate(oplog model.Oplog) (result string) {
 	var query strings.Builder
 	tableName, err := oplog.GetFullTableName()
 
@@ -44,12 +46,12 @@ func (s *UpdateStrategy) Generate(oplog model.Oplog, queryTracker map[string]mod
 
 	updateResult := query.String()
 
-	if _, ok := queryTracker[updateResult]; !ok {
+	if _, ok := s.Tracker.Get(updateResult); !ok {
 		result = updateResult
-		queryTracker[updateResult] = model.QueryTracker{
+		s.Tracker.Store(updateResult, model.QueryTracker{
 			Type:  model.UPDATE,
 			Query: result,
-		}
+		})
 	}
 
 	return

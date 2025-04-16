@@ -297,5 +297,6 @@ func TestNestedOplogs(t *testing.T) {
 }
 
 func getMongoOplogParser() MongoOplogParser {
-	return *NewMongoOplogParser()
+	tracker := model.NewTracker()
+	return *NewMongoOplogParser(tracker)
 }

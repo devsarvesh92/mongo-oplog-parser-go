@@ -16,18 +16,16 @@ type MongoOplogParser struct {
 	UpdateStrategy       *strategy.UpdateStrategy
 	DeleteStrategy       *strategy.DeleteStrategy
 	NestedInsertStrategy *strategy.NestedInsertStratgey
-	QueryTracker         map[string]model.QueryTracker
 }
 
 // This will be moved out.
 // Keeping it here for now
-func NewMongoOplogParser() *MongoOplogParser {
+func NewMongoOplogParser(tracker *model.Tracker) *MongoOplogParser {
 	return &MongoOplogParser{
-		InsertStrategy:       strategy.NewInsertStrategy(),
-		DeleteStrategy:       strategy.NewDeleteStrategy(),
-		UpdateStrategy:       strategy.NewUpdateStrategy(),
-		NestedInsertStrategy: strategy.NewNestedInsertStragey(),
-		QueryTracker:         make(map[string]model.QueryTracker),
+		InsertStrategy:       strategy.NewInsertStrategy(tracker),
+		DeleteStrategy:       strategy.NewDeleteStrategy(tracker),
+		UpdateStrategy:       strategy.NewUpdateStrategy(tracker),
+		NestedInsertStrategy: strategy.NewNestedInsertStragey(tracker),
 	}
 }
 
@@ -42,16 +40,16 @@ func (s *MongoOplogParser) GenerateSQL(oplogs []model.Oplog) (result model.Resul
 	for _, oplog := range oplogs {
 		switch {
 		case oplog.IsNestedDocument():
-			result.SQL = append(result.SQL, s.NestedInsertStrategy.Generate(oplog, s.QueryTracker)...)
+			result.SQL = append(result.SQL, s.NestedInsertStrategy.Generate(oplog)...)
 		case oplog.IsInsert():
-			result.SQL = append(result.SQL, s.InsertStrategy.Generate(oplog, s.QueryTracker)...)
+			result.SQL = append(result.SQL, s.InsertStrategy.Generate(oplog)...)
 		case oplog.IsUpdate():
-			updateSQL := s.UpdateStrategy.Generate(oplog, s.QueryTracker)
+			updateSQL := s.UpdateStrategy.Generate(oplog)
 			if updateSQL != "" {
 				result.SQL = append(result.SQL, updateSQL)
 			}
 		case oplog.IsDelete():
-			deleteSQL := s.DeleteStrategy.Generate(oplog, s.QueryTracker)
+			deleteSQL := s.DeleteStrategy.Generate(oplog)
 			if deleteSQL != "" {
 				result.SQL = append(result.SQL, deleteSQL)
 			}

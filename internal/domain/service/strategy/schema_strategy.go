@@ -7,23 +7,27 @@ import (
 	"github.com/devsarvesh92/mongoOplogParser/internal/domain/model"
 )
 
-type SchemaStrategy struct{}
-
-func NewSchemaStrategy() *SchemaStrategy {
-	return &SchemaStrategy{}
+type SchemaStrategy struct {
+	Tracker *model.Tracker
 }
 
-func (s *SchemaStrategy) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result string) {
+func NewSchemaStrategy(tracker *model.Tracker) *SchemaStrategy {
+	return &SchemaStrategy{
+		Tracker: tracker,
+	}
+}
+
+func (s *SchemaStrategy) Generate(oplog model.Oplog) (result string) {
 	nameSpace, err := oplog.GetDatabaseName()
 	if err != nil {
 		log.Printf("Error occured while extracting schema name %v", err)
 	}
-	if _, ok := queryTracker[nameSpace]; !ok {
+	if _, ok := s.Tracker.Get(nameSpace); !ok {
 		result = fmt.Sprintf("CREATE SCHEMA %v;", nameSpace)
-		queryTracker[nameSpace] = model.QueryTracker{
+		s.Tracker.Store(nameSpace, model.QueryTracker{
 			Type:  model.CREATE_SCHEMA,
 			Query: result,
-		}
+		})
 	}
 	return
 }

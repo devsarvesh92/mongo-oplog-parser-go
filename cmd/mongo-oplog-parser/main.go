@@ -68,8 +68,7 @@ func generateSQL(cmd *cobra.Command, args []string) {
 		log.Fatalf("Unable to create output")
 	}
 	defer oplogWriter.Close()
-
-	oplogParser := parser.NewMongoOplogParser()
+	oplogParser := parser.NewMongoOplogParser(model.NewTracker())
 	for {
 		oplog, err := oplogReader.ReadOplog()
 

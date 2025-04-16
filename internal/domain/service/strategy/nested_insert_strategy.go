@@ -10,17 +10,18 @@ import (
 
 type NestedInsertStratgey struct {
 	InsertStrategy *InsertStrategy
+	Tracker        *model.Tracker
 }
 
-func NewNestedInsertStragey() *NestedInsertStratgey {
-	return &NestedInsertStratgey{InsertStrategy: NewInsertStrategy()}
+func NewNestedInsertStragey(tracker *model.Tracker) *NestedInsertStratgey {
+	return &NestedInsertStratgey{InsertStrategy: NewInsertStrategy(tracker)}
 }
 
-func (s *NestedInsertStratgey) Generate(oplog model.Oplog, queryTracker map[string]model.QueryTracker) (result []string) {
+func (s *NestedInsertStratgey) Generate(oplog model.Oplog) (result []string) {
 	oplogs := s.flatenOplog(oplog)
 
 	for _, oplog := range oplogs {
-		result = append(result, s.InsertStrategy.Generate(oplog, queryTracker)...)
+		result = append(result, s.InsertStrategy.Generate(oplog)...)
 	}
 	return
 }
