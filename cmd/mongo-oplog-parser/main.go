@@ -78,9 +78,7 @@ func generateSQL(cmd *cobra.Command, args []string) {
 			fmt.Print(sql)
 			oplogWriter.WriteSQL(sql)
 		}
-
 	}
-
 }
 
 func handleGracefulShutdown(cancel context.CancelFunc) {
