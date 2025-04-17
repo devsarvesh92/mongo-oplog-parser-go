@@ -26,12 +26,13 @@ func NewPostgresWriter(connectionString string) (*PostgresWriter, error) {
 	return &PostgresWriter{db: db}, nil
 }
 
-func (r *PostgresWriter) WriteSQL(sql string) {
+func (r *PostgresWriter) WriteSQL(sql string) error {
 	_, err := r.db.Exec(sql)
 
 	if err != nil {
-		fmt.Printf("unable to execute %v because of %v", sql, err)
+		return fmt.Errorf("unable to execute %v because of %v", sql, err)
 	}
+	return nil
 }
 
 func (r *PostgresWriter) Close() {

@@ -1,7 +1,6 @@
 package writer
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/devsarvesh92/mongoOplogParser/internal/port"
@@ -17,15 +16,16 @@ const (
 func NewWriter(t WriterType, desitnation string) (writer port.SQLWriter, err error) {
 	switch t {
 	case File:
-		reader, err := NewFileWriter(desitnation)
+		writer, err = NewFileWriter(desitnation)
 		if err != nil {
-			log.Fatal("unable to initialize file reader %w", err)
+			log.Fatal("unable to initialize file writer %w", err)
 		}
-		return reader, nil
 
 	case Database:
-		//
-		return nil, fmt.Errorf("database writer not implemented yet")
+		writer, err = NewPostgresWriter(desitnation)
+		if err != nil {
+			log.Fatal("unable to connect to postgresql %w", err)
+		}
 	}
 	return
 }
