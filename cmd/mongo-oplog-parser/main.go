@@ -38,9 +38,9 @@ func Execute() {
 
 func init() {
 	rootCmd.Flags().StringP("Source", "f", "", "Source mongodb oplog")
-	rootCmd.Flags().StringP("Desitination", "o", "", "Destination SQL")
+	rootCmd.Flags().StringP("Destination", "o", "", "Destination SQL")
 	rootCmd.Flags().StringP("SourceType", "t", "mongo-file", "Type of input (mongo-file, mongo-stream)")
-	rootCmd.Flags().StringP("DesitinationType", "w", "file", "Type of output (file, database)")
+	rootCmd.Flags().StringP("DestinationType", "w", "file", "Type of output (file, database)")
 }
 
 func generateSQL(cmd *cobra.Command, args []string) {
