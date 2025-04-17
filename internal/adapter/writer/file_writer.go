@@ -3,7 +3,6 @@ package writer
 import (
 	"fmt"
 	"os"
-	"strings"
 )
 
 type FileWriter struct {
@@ -26,14 +25,6 @@ func NewFileWriter(filePath string) (*FileWriter, error) {
 func (s *FileWriter) WriteSQL(sql string) error {
 	if sql == "" {
 		return fmt.Errorf("invalid sql")
-	}
-
-	if !strings.HasSuffix(sql, ";") {
-		sql += ";"
-	}
-
-	if !strings.HasSuffix(sql, "\n") {
-		sql += "\n"
 	}
 
 	_, err := s.file.WriteString(sql)

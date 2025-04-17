@@ -50,9 +50,9 @@ func generateSQL(cmd *cobra.Command, args []string) {
 	handleGracefulShutdown(cancel)
 
 	source, _ := cmd.Flags().GetString("Source")
-	destination, _ := cmd.Flags().GetString("Desitination")
+	destination, _ := cmd.Flags().GetString("Destination")
 	sourceType, _ := cmd.Flags().GetString("SourceType")
-	destinationType, _ := cmd.Flags().GetString("DesitinationType")
+	destinationType, _ := cmd.Flags().GetString("DestinationType")
 
 	oplogReader, err := reader.NewReader(reader.ReaderType(sourceType), source)
 
