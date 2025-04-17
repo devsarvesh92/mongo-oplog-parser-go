@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/cmd/mongo-oplog-parser/main.go",
             "args": [
                 "-f",
-                "mongodb://localhost:27017",
+                "./internal/adapter/reader/test_data/sample.json",
                 "-o",
                 "/tmp/op.sql",
                 "-t",

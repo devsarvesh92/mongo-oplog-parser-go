@@ -2,6 +2,7 @@ package reader
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -112,4 +113,26 @@ func (s *MongoReader) Close() {
 	}
 
 	s.cancel()
+}
+
+func (r *MongoReader) ReadOplogs(ctx context.Context) <-chan model.Oplog {
+	oplogChannel := make(chan model.Oplog)
+
+	go func() {
+		defer close(oplogChannel)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				oplog, err := r.ReadOplog()
+				if err != nil {
+					fmt.Println("error %w occured while reading oplog", err)
+					return
+				}
+				oplogChannel <- oplog
+			}
+		}
+	}()
+	return oplogChannel
 }

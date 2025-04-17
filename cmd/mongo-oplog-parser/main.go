@@ -4,10 +4,12 @@ Copyright © 2025 NAME HERE <EMAIL ADDRESS>
 package main
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/devsarvesh92/mongoOplogParser/internal/adapter/reader"
 	"github.com/devsarvesh92/mongoOplogParser/internal/adapter/writer"
@@ -42,6 +44,11 @@ func init() {
 }
 
 func generateSQL(cmd *cobra.Command, args []string) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+
+	handleGracefulShutdown(cancel)
+
 	source, _ := cmd.Flags().GetString("Source")
 	destination, _ := cmd.Flags().GetString("Desitination")
 	sourceType, _ := cmd.Flags().GetString("SourceType")
@@ -62,22 +69,26 @@ func generateSQL(cmd *cobra.Command, args []string) {
 	}
 	defer oplogWriter.Close()
 	oplogParser := parser.NewMongoOplogParser(model.NewTracker())
-	for {
-		oplog, err := oplogReader.ReadOplog()
 
-		if err == io.EOF {
-			fmt.Printf("Done with file processing")
-			os.Exit(1)
+	oplogs := oplogReader.ReadOplogs(ctx)
+
+	for oplog := range oplogs {
+		res := oplogParser.GenerateSQL([]model.Oplog{oplog})
+		for _, sql := range res.SQL {
+			fmt.Print(sql)
+			oplogWriter.WriteSQL(sql)
 		}
 
-		result := oplogParser.GenerateSQL([]model.Oplog{oplog})
-
-		for _, sql := range result.SQL {
-			err := oplogWriter.WriteSQL(sql)
-			fmt.Println(sql)
-			if err != nil {
-				fmt.Printf("unable to write sql %v due to error %v", sql, err)
-			}
-		}
 	}
+
+}
+
+func handleGracefulShutdown(cancel context.CancelFunc) {
+	go func() {
+		sigs := make(chan os.Signal, 1)
+		signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+		<-sigs
+		fmt.Println("Done")
+		cancel()
+	}()
 }

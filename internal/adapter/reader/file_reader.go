@@ -1,6 +1,7 @@
 package reader
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -45,6 +46,28 @@ func (r *FileReader) ReadOplog() (oplog model.Oplog, err error) {
 	}
 
 	return oplog, nil
+}
+
+func (r *FileReader) ReadOplogs(ctx context.Context) <-chan model.Oplog {
+	oplogChannel := make(chan model.Oplog)
+
+	go func() {
+		defer close(oplogChannel)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				oplog, err := r.ReadOplog()
+				if err != nil {
+					fmt.Println("error %w occured while reading oplog", err)
+					return
+				}
+				oplogChannel <- oplog
+			}
+		}
+	}()
+	return oplogChannel
 }
 
 func (s *FileReader) Close() {
